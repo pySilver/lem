@@ -4,13 +4,30 @@ agterm's sessions in a file, records each call, and answers as agterm does (`agt
 
 Its parser is as strict as agterm's own: each subcommand takes the options its `--help` names
 (agtermctl 2026-11-25: `session new`, `close`, `rename`, `status`, `select`, `overlay open`,
-`msg send`, `msg read`, `pick`, `tree`), the number of arguments it names, and refuses the pairs
+`msg send`, `msg read`, `pick`, `tree`; and from agterm's reference, 2026-11-27, `zmx tree`,
+`zmx attach` and `restore mode`), the number of arguments it names, and refuses the pairs
 it names as exclusive (`--workspace` with `--workspace-name`, `--after` or `--before`, whose
 anchor carries its own workspace; `--after` with `--before`; `--parent` with either), with exit
 64 as Swift's argument parser gives. `msg send` and `msg read` take no `--window`.
 
 A test puts its folder first on the PATH of the place it binds the adapter to, before
 `/usr/bin:/bin` alone, so that no call reaches the owner's real agterm.
+
+Another Mac is a second stand-in: `hosts` of this one's tree names the folder of the stand-in that
+each ssh destination reaches, and `zmx tree HOST` and `zmx attach HOST SESSION --companions` read
+that one's sessions (agterm's reference, "Remote sessions"). A refusal of those calls is agterm's
+reply on standard output with exit 1, as `agtermctl --json` gives it (agterm be92bc63,
+`SocketClient.printResponse`). A destination not named fails as ssh does; the far tree's
+`ssh_says` is ssh's own words, `agtermctl = false` a Mac with no agtermctl, `zmx_tree = false`
+one too old for `zmx tree`, a `restore` other than `live` one outside Live sessions, which lists
+nothing; `companions_known = false` an origin that names no companions, `gone_members` the companions
+that fail in a group attach, which keeps the other rows, and `gone_at_attach` a session that
+ends between the list and the attach. This tree's
+`group_attach = false` is an app too old for a group attach, and `old_cli = true` an agtermctl
+that does not know `--companions`. `windows` names this Mac's open windows (`W1` alone when it
+names none, and then a call's window places nothing); a session's `window` places it, and
+`tree --window` and `session select --window` read it.
+`restore mode` answers in the owner's own form of 2026-11-27.
 """
 
 import json
@@ -53,6 +70,10 @@ SPEC = {
     ("pick",): (
         WS | {"--prompt", "--query", "--select", "--timeout", "--session"},
         {"--allow-custom", "--follow", "--no-block", "--json"}, 0, 0),
+    ("zmx", "tree"): ({"--socket"}, {"--json"}, 0, 1),
+    ("zmx", "attach"): (WS, {"--companions", "--json"}, 2, 2),
+    ("restore", "mode"): ({"--socket"}, {"--json"}, 0, 1),
+    ("window", "list"): ({"--socket"}, {"--json"}, 0, 0),
 }
 EXCLUSIVE = {
     ("session", "new"): (
@@ -100,6 +121,7 @@ def strict(args):
 
 
 strict(args)
+window = args[args.index("--window") + 1] if "--window" in args else None
 for flag in ("--socket", "--window"):
     if flag in args:
         at = args.index(flag)
@@ -124,9 +146,25 @@ def value(flag):
 def target():
     wanted = value("--target")
     for node in tree["sessions"]:
-        if node["id"] == wanted:
+        if node["id"] == wanted and in_window(node):
             return node
     sys.exit("no session " + wanted)
+
+
+# Whether a node is in the window a call names: windows count only in a tree that names them.
+def in_window(node):
+    if window is None or "windows" not in tree:
+        return True
+    return node.get("window", tree["windows"][0]) == window
+
+
+# A refusal as `agtermctl --json` gives it: agterm's reply on standard output, exit 1.
+def failed(error, result=None):
+    reply = {"ok": False, "error": error}
+    if result is not None:
+        reply["result"] = result
+    print(json.dumps(reply))
+    sys.exit(1)
 
 
 def holder(pane):
@@ -142,14 +180,94 @@ def save():
         json.dump(tree, written)
 
 
+# The tree of the stand-in of the Mac that `host` reaches over ssh, refused in agterm's words
+# for what that Mac lacks.
+def farther(host):
+    folder = tree.get("hosts", {}).get(host)
+    if folder is None:
+        failed("ssh: Could not resolve hostname " + host
+               + ": nodename nor servname provided, or not known")
+    with open(os.path.join(folder, "tree.json")) as read:
+        far = json.load(read)
+    for said in far.get("ssh_says", ()):
+        failed(said)
+    if far.get("agtermctl") is False:
+        failed("sh: agtermctl: command not found")
+    if far.get("zmx_tree") is False:
+        failed("the remote did not return a readable session list")
+    return far
+
+
+# The far Mac's top-level sessions with live daemons: none outside Live sessions.
+def offered(far):
+    if far.get("restore", "live") != "live":
+        return []
+    nodes = far["sessions"]
+    listed = []
+    for n in nodes:
+        row = {"id": n["id"], "name": n.get("name"), "workspaceID": n["workspace"]}
+        if "parent" in n:
+            row["parent"] = n["parent"]
+        elif far.get("companions_known", True):
+            row["companions"] = [{"id": c["id"], "name": c.get("name")} for c in nodes
+                                 if c.get("parent") == n["id"]]
+        listed.append(row)
+    return listed
+
+
+# Attach a far session and its companions here, selected, marked remote.
+def attach(host, wanted):
+    if tree.get("old_cli"):
+        sys.stderr.write("Error: Unknown option '--companions'\n")
+        sys.exit(64)
+    if tree.get("group_attach") is False:
+        failed("the running app is too old for group attach")
+    far = farther(host)
+    offers = offered(far)
+    listed = [s for s in offers if s["id"] == wanted and "parent" not in s]
+    if not listed or far.get("gone_at_attach"):
+        failed("no attachable session " + wanted + " on " + host)
+    known = "companions" in listed[0]
+    members = listed[0]["companions"] if known else [
+        {"id": s["id"], "name": s["name"]} for s in offers if s.get("parent") == wanted]
+    tree["count"] = tree.get("count", 0) + 1
+    parent = "R-%d" % tree["count"]
+    front = tree.get("windows", ["W1"])[0]
+    for node in tree["sessions"]:
+        node["active"] = False
+    tree["sessions"].append({"id": parent, "name": listed[0]["name"],
+                             "workspace": tree["workspaces"][0], "window": front,
+                             "remoteHost": host, "remoteSessionID": wanted, "active": True})
+    outcomes, missing = [], []
+    for at, member in enumerate(members):
+        if member["id"] in far.get("gone_members", ()):
+            outcomes.append({"origin": member["id"], "error": "unavailable on " + host})
+            missing.append(member["name"] + " (unavailable on " + host + ")")
+            continue
+        made = "%s-C%d" % (parent, at + 1)
+        tree["sessions"].append({"id": made, "name": member["name"],
+                                 "workspace": tree["workspaces"][0], "window": front,
+                                 "parent": parent, "remoteHost": host,
+                                 "remoteSessionID": member["id"]})
+        outcomes.append({"origin": member["id"], "id": made})
+    save()
+    result = {"id": parent,
+              "remoteGroup": {"membershipKnown": known, "companions": outcomes}}
+    if missing:
+        failed("kept %s (%s) and %d companion(s); not attached: %s" % (
+            listed[0]["name"], parent, len(outcomes) - len(missing), ", ".join(missing)), result)
+    print(json.dumps({"ok": True, "result": result}))
+
+
 if args[:2] == ["tree", "--json"]:
     if tree.get("stop_after_second_tree"):
         tree["reads"] = tree.get("reads", 0) + 1
         save()
         if tree["reads"] == 2:
             os.chmod(__file__, 0o644)
+    seen = [n for n in tree["sessions"] if in_window(n)]
     spaces = [
-        {"id": space, "sessions": [n for n in tree["sessions"] if n["workspace"] == space]}
+        {"id": space, "sessions": [n for n in seen if n["workspace"] == space]}
         for space in tree["workspaces"]
     ]
     print(json.dumps({"result": {"tree": {"workspaces": spaces}}}))
@@ -167,6 +285,8 @@ elif args[:2] == ["session", "new"]:
         "id": made, "name": value("--name"), "workspace": space, "cwd": value("--cwd"),
         "foreground": ["/usr/local/bin/claude"], "command": value("--command"),
     }
+    if "--parent" in args:
+        node["parent"] = value("--parent")
     if "--after" in args:
         anchor = [n["id"] for n in tree["sessions"]].index(value("--after"))
         tree["sessions"].insert(anchor + 1, node)
@@ -204,6 +324,20 @@ elif args[:2] == ["msg", "send"]:
 elif args[:2] == ["msg", "read"]:
     node = holder(value("--as"))
     print(json.dumps({"result": {"messages": [{"text": t} for t in node.get("mailbox", [])]}}))
+elif args[:2] == ["restore", "mode"]:
+    mode = tree.get("restore", "live")
+    print(json.dumps({"result": {"restore": {
+        "restartRequired": False, "configured": mode, "requestedAtLaunch": mode, "active": mode,
+    }}, "ok": True}))
+elif args[:2] == ["window", "list"]:
+    print(json.dumps({"ok": True, "result": {"windows": [
+        {"id": one, "name": one, "open": True} for one in tree.get("windows", ["W1"])
+    ]}}))
+elif args[:2] == ["zmx", "tree"]:
+    far = farther(args[2])
+    print(json.dumps({"result": {"remote": {"host": args[2], "sessions": offered(far)}}}))
+elif args[:2] == ["zmx", "attach"]:
+    attach(args[2], args[3])
 elif args[:1] == ["pick"]:
     rows = sys.stdin.read().splitlines()
     answer = tree.get("pick")

@@ -212,7 +212,8 @@ def test_peer_pages_assets_union_and_loop_guard(tmp_path: Path) -> None:
             assert " · Lem · beta/shop · " in seen.text
             assert '<span class="ws-host">beta</span>' in seen.text
             assert 'id="card-repair-export"' in seen.text
-            assert "data-agterm-url-value" not in seen.text
+            # The owner reads the page on this Mac: the jump posts to this board.
+            assert 'data-agterm-url-value="/beta/shop/agterm"' in seen.text
             assert 'href="/alpha/app/"' in seen.text
             assert 'href="/beta/shop/new"' not in seen.text
             asset_body = await client.get("/beta/assets/test.css")
@@ -222,7 +223,8 @@ def test_peer_pages_assets_union_and_loop_guard(tmp_path: Path) -> None:
                 "location"
             ] == "/beta/shop/"
             assert (await client.post("/beta/shop/")).status_code == 405
-            assert (await client.post("/beta/shop/agterm/type")).status_code == 405
+            # The jump is this board's own act, refused here as no page of this board.
+            assert (await client.post("/beta/shop/agterm/type")).status_code == 403
             assert (
                 await client.get("/beta/shop/", headers={"Lem-Hop": "1"})
             ).status_code == 404

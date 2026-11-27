@@ -4,7 +4,10 @@ with what Lem reads of it (the forms read in agterm's reference and its tree on 
 
 A session's `foreground` is the argv of its main pane's program, left out while a shell holds the
 pane; `realized` is false while agterm has not drawn the pane; `surfaces` name its panes, the left
-one a message reaches. Keys Lem does not read are read past.
+one a message reaches. A session attached from another Mac names that Mac's ssh destination in
+`remoteHost` and its id there in `remoteSessionID` (the second is in no reference: read in the
+strings of agterm's app on 2026-11-27, beside `remoteHost` in the node's keys). Keys Lem does not
+read are read past.
 """
 
 import msgspec
@@ -32,6 +35,8 @@ class Node(msgspec.Struct, frozen=True, kw_only=True):
     realized: bool | None = None
     surfaces: tuple[Surface, ...] = ()
     workspace: str = ""
+    remote_host: str | None = msgspec.field(default=None, name="remoteHost")
+    remote_session: str | None = msgspec.field(default=None, name="remoteSessionID")
 
     def pane(self) -> Pane:
         """The session as the port gives it."""

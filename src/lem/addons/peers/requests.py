@@ -6,6 +6,11 @@ from urllib.parse import unquote, urlsplit
 from lem.addons.peers import rows
 
 HOP = "Lem-Hop"
+# The owner reads the relayed page on the Mac of the board that relays it, where his agterm runs:
+# the joined board then draws the jump to a task's session, whose act is the relaying board's.
+HERE = "Lem-Agterm"
+# The most a board reads of a joined board's JSON reply, an error reply too (main, 2026-11-25).
+JSON_CAP = 1_000_000
 COOKIE = "lem_board"
 FORWARDED = (
     "Accept",
@@ -64,8 +69,11 @@ def cookie(given: str) -> str | None:
 def outgoing(
     incoming: dict[str, str],
     listed: tuple[rows.Row, ...],
+    *,
+    here: bool = False,
 ) -> dict[str, str]:
-    """The given read headers, the preference cookie and the hop marker."""
+    """The given read headers, the preference cookie, the hop marker, and the mark of a page
+    read on this Mac."""
     passed = {
         key: incoming[key.lower()] for key in FORWARDED if key.lower() in incoming
     }
@@ -76,6 +84,8 @@ def outgoing(
     if spaces:
         passed[rows.SPACES] = spaces
     passed[HOP] = "1"
+    if here:
+        passed[HERE] = "1"
     return passed
 
 

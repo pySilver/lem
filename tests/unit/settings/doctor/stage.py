@@ -2,8 +2,8 @@
 Homebrew's prefixes, an app's Python and repositories made of the files git keeps.
 
 No row of a test looks at the owner's home, his tools or his agterm: the look names this folder
-for each, and the one connection a row may make, to cronn's status, is a stand-in that records
-the port it was asked for.
+for each. The connections a row may make are stand-ins: cronn's status records the port it was
+asked for, and a joined machine's board answers from `boards`.
 """
 
 import json
@@ -30,6 +30,7 @@ class Stage:
     asked: list[int] = field(default_factory=list)
     answering: bool = False
     extra: dict[str, str] = field(default_factory=dict)
+    boards: dict[str, tuple[bool | None, str]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         """Make the folders."""
@@ -80,6 +81,10 @@ class Stage:
         self.asked.append(port)
         return self.answering
 
+    def peer_live(self, name: str, port: int) -> tuple[bool | None, str]:
+        """The stand-in of a joined machine's board: whether its agterm runs Live sessions."""
+        return self.boards.get(name, (None, f"no board answers at {name}:{port}"))
+
     def look(self, folder: Path | None = None, **environ: str) -> Look:
         """The look of a call from `folder` (the work folder when None)."""
         given = {
@@ -97,6 +102,7 @@ class Stage:
             prefix=self.app,
             brews=(self.brew,),
             status=self.status,
+            peer_live=self.peer_live,
         )
 
     def write(self, relative: str, text: str) -> Path:

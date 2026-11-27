@@ -1,14 +1,17 @@
-"""The board's only add-on import: joined-board reads and the workspace switcher."""
+"""The board's only add-on import: joined-board reads, the workspace switcher, the jump to a joined
+machine's session in this Mac's agterm, and the reads of this Mac's agterm that a joined board
+asks for."""
 
 from http import HTTPStatus
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse
 from starlette.routing import Match, Route
 
-from lem.addons.peers import registry, relay, requests, rows
+from lem.addons.peers import jump, origin, registry, relay, requests, rows
+from lem.board import listener
 
 if TYPE_CHECKING:
     from starlette.responses import Response
@@ -16,14 +19,13 @@ if TYPE_CHECKING:
 
 type Rows = tuple[rows.Row, ...]
 
+READS = ("GET", "HEAD")
+GET = ("GET",)
+
 
 def peers(request: Request) -> registry.Registry:
     """Create one registry per board app, on its first peer-related request."""
-    state = request.app.state
-    if not hasattr(state, "peer_registry"):
-        host = state.facts.host
-        state.peer_registry = registry.Registry(home=state.home, own=host)
-    return cast("registry.Registry", state.peer_registry)
+    return registry.held(request)
 
 
 async def spaces(request: Request, own: Rows) -> Rows:
@@ -36,7 +38,7 @@ async def spaces(request: Request, own: Rows) -> Rows:
 
 async def forward(request: Request) -> Response:
     """Pass the matched peer's read, along with the workspace switcher."""
-    if request.method not in {"GET", "HEAD"}:
+    if request.method not in READS:
         return PlainTextResponse(
             "Only a read passes to another machine.",
             status_code=HTTPStatus.METHOD_NOT_ALLOWED,
@@ -45,7 +47,8 @@ async def forward(request: Request) -> Response:
     machine = registry.known[request.path_params["peer"]]
     own = await run_in_threadpool(request.app.state.peer_own_rows, request)
     listed = await spaces(request, own)
-    return await relay.relay(request, machine, registry, listed)
+    here = listener.from_here(request) and not listener.at_door(request)
+    return await relay.relay(request, machine, registry, (listed, here))
 
 
 class JoinedRoute(Route):
@@ -64,7 +67,21 @@ class JoinedRoute(Route):
         return (Match.FULL, child) if host in joined else (Match.NONE, {})
 
 
+class JumpRoute(JoinedRoute):
+    """The jump to a joined machine's session claims only a POST: a read of the same address
+    passes to the machine."""
+
+    def matches(self, scope: Scope) -> tuple[Match, Scope]:
+        """No match for a method other than POST."""
+        if scope.get("method") != "POST":
+            return Match.NONE, {}
+        return super().matches(scope)
+
+
 ROUTES = (
-    JoinedRoute("/{peer}/{rest:path}", forward, methods=["GET", "HEAD"]),
-    JoinedRoute("/{peer}", forward, methods=["GET", "HEAD"]),
+    JumpRoute("/{peer}/{workspace}/agterm/{session}", jump.endpoint, methods=("POST",)),
+    JoinedRoute("/{peer}/{rest:path}", forward, methods=READS),
+    JoinedRoute("/{peer}", forward, methods=READS),
+    Route("/api/agterm", origin.agterm, methods=GET),
+    Route("/{host}/{workspace}/agterm/{session}", origin.session, methods=GET),
 )

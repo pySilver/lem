@@ -3,8 +3,9 @@ call, this app's Python, and the programs on the environment's PATH.
 
 Every row takes one `Look`, so a test gives it a home of its own, a PATH of stand-in scripts and
 Homebrew's prefixes in a temporary folder, and never reaches the owner's own files or tools. A
-program is run with a timeout and its first line read; the one connection a row may make, to
-cronn's status on this machine, goes through `answers`, which a test replaces.
+program is run with a timeout and its first line read. The connections a row may make, to
+cronn's status on this machine and to the board of each machine joined to this one, go through
+`answers` and `board_live`, which a test replaces.
 """
 
 import shutil
@@ -14,6 +15,8 @@ from dataclasses import dataclass, field
 from http.client import HTTPConnection, HTTPException
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+from lem.cli.doctor.peer_look import board_live
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
@@ -51,7 +54,8 @@ def asked(connection: HTTPConnection) -> int:
 @dataclass(frozen=True, kw_only=True)
 class Look:
     """The environment, the user's home, the folder of the call, the app's Python and its
-    environment's prefix, Homebrew's prefixes, and the question to cronn's status."""
+    environment's prefix, Homebrew's prefixes, the question to cronn's status, and the question
+    to a joined machine's board whether its agterm runs Live sessions."""
 
     environ: Mapping[str, str]
     home: Path
@@ -60,6 +64,7 @@ class Look:
     prefix: Path = Path(sys.prefix)
     brews: tuple[Path, ...] = BREWS
     status: Callable[[int], bool] = field(default=answers)
+    peer_live: Callable[[str, int], tuple[bool | None, str]] = field(default=board_live)
 
     def which(self, name: str) -> Path | None:
         """The program `name` first on the environment's PATH."""

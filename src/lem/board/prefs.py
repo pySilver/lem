@@ -24,6 +24,10 @@ COOKIE = "lem_board"
 # holds (`serve.PANEL_WIDTHS` on `main`).
 NARROWEST = 300
 WIDEST = 4000
+# A request relayed by a joined board, and its mark of a page the owner reads on that board's
+# Mac, where his agterm runs (`addons/peers/requests.py`).
+HOP = "Lem-Hop"
+HERE = "Lem-Agterm"
 NATIVE = re.compile(r"\b(Turbo|Hotwire) Native\b")
 # The columns a fold may name (`board_model.LANE` on `main`).
 COLUMNS = ("you", "build", "checks", "done")
@@ -40,8 +44,9 @@ class Prefs(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Asker(msgspec.Struct, frozen=True, kw_only=True):
-    """Who asks for a page: whether it is for this Mac (the agterm jump), whether it may act
-    (on this Mac or through the door), whether it is the Hotwire Native app, and the cookie."""
+    """Who asks for a page: whether it is for a Mac with the owner's agterm (the agterm jump:
+    this Mac, or the Mac of the joined board that relays it), whether it may act (on this Mac
+    or through the door), whether it is the Hotwire Native app, and the cookie."""
 
     local: bool
     may_act: bool
@@ -84,13 +89,15 @@ def prefs_of(header: str | None) -> Prefs:
 
 
 def asker_of(request: HTTPConnection) -> Asker:
-    """Who asks for the page of `request`."""
+    """Who asks for the page of `request`: a page relayed by a joined board is for the Mac of
+    that board when it says so, and acts nowhere here."""
     door = listener.at_door(request)
-    direct = "Lem-Hop" not in request.headers
+    direct = HOP not in request.headers
     local = direct and not door and listener.from_here(request)
+    jumps = local or (not direct and request.headers.get(HERE) == "1")
     agent = request.headers.get("user-agent", "")
     return Asker(
-        local=local,
+        local=jumps,
         may_act=direct and (door or local),
         native=bool(NATIVE.search(agent)),
         prefs=prefs_of(request.headers.get("cookie")),
