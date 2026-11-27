@@ -12,9 +12,10 @@ from msgspec.structs import replace
 
 from fakes.git import ModelGit
 from fakes.records import MOMENT
-from lem.app.sessions import acts, log
+from lem.app.sessions import acts, log, opening
 from lem.board.duties import queue, sync
 from lem.board.duties.memory import Kept
+from lem.kernel.errors import Refusal
 from lem.records.base import Moment, Tagged
 from lem.records.holds import Blocked
 from lem.store import tasks
@@ -202,3 +203,18 @@ def test_a_sync_wake_is_skipped_by_the_reader_of_lem_0_4_2(
         msgspec.json.decode(written[1], type=OldAct)
     monkeypatch.setattr(log, "Act", OldAct)
     assert log.read(folder) == (OldWake(at=MOMENT, session="S-1", why="queue"),)
+
+
+def test_a_sync_opens_a_session_only_for_a_feature_before_its_turn(
+    tmp_path: Path,
+) -> None:
+    here = world(tmp_path)
+    made(here, "first", status="building", lead="builder")
+    made(here, "waits", status="queued", after=("first",), lead="builder")
+    with pytest.raises(Refusal) as refused:
+        opening.open_session(here, "waits", "sync", None, HOUR)
+    assert refused.value.code == "queued-after"
+    with pytest.raises(Refusal):
+        opening.open_session(here, FEATURE, "queue", None, HOUR)
+    opened = opening.open_session(here, FEATURE, "sync", None, HOUR)
+    assert opened.already is False

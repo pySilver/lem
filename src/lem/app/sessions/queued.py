@@ -1,13 +1,18 @@
 """Whether a queued task may get its session now: a task queued after others waits until each
 of them landed or was answered; a dropped one leaves it queued for the owner's word, which
-starts it or drops it (`session.queued_behind` on `main`)."""
+starts it or drops it (`session.queued_behind` on `main`). A feature, which a part names, gets
+its session for a sync while it waits for its parts (`board/duties/sync.py`)."""
 
 from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
 from lem.model.task import behind as dependencies
+from lem.model.task import sync
 from lem.records.holds import ReleaseHold
-from lem.store import tasks
+from lem.store import survey, tasks
+
+# The open of a feature for its sync, before the turn of its end.
+SYNC = "sync"
 
 if TYPE_CHECKING:
     from lem.app.sessions.here import Here
@@ -38,6 +43,15 @@ def behind(here: Here, task: Task) -> None:
         raise Refusal(
             "queued-after", refused.why, f"the owner's word starts it now: {start}"
         )
+
+
+def syncs(here: Here, task: Task, why: str) -> bool:
+    """Whether the open is a feature's sync, which waits for no turn: its why is `sync`, and
+    a part names the task."""
+    if why != SYNC:
+        return False
+    every = survey.records(here.where.state).readable
+    return sync.named(task.slug, (one.task for one in every))
 
 
 def release_stop(task: Task) -> None:
