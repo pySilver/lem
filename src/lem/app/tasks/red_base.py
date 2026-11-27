@@ -12,13 +12,16 @@ if TYPE_CHECKING:
 
     from lem.records.task import Task
 
+# The step's name on the task's step lock, which names its command.
+STEP = "task red-base"
+
 
 def run(folder: Path, slug: str, after: str) -> Task:
     """The task with its hold set."""
     state = places.workspace(folder).state
     tasks.read(state, slug)
     now = clock.now()
-    with steps.step(state, slug, "red-base", now):
+    with steps.step(state, slug, STEP, now):
         record = release.checked(state, slug)
         updated = red_base.blocked(record, tasks.read(state, after), now)
         if updated is record:

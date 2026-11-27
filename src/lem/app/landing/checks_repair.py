@@ -13,13 +13,16 @@ from lem.store import places, steps, tasks
 if TYPE_CHECKING:
     from pathlib import Path
 
+# The step's name on the task's step lock, which names its command.
+STEP = "land checks --repair-limit"
+
 
 def run(folder: Path, slug: str) -> Envelope:
     """Block the landing after the stage's two unsuccessful repairs."""
     state = places.workspace(folder).state
     tasks.read(state, slug)
     now = clock.now()
-    with steps.step(state, slug, "repair-limit", now):
+    with steps.step(state, slug, STEP, now):
         record = release.checked(state, slug)
         updated = repair_limit.blocked(record, now)
         if updated is not record:

@@ -19,6 +19,8 @@ from lem.model.task import holds, table
 from lem.store import places, steps, tasks
 
 DROPPED = "dropped"
+# The drop's name on the task's step lock, which names its command.
+STEP = "task move SLUG dropped"
 
 if TYPE_CHECKING:
     from lem.app.wiring import Ports
@@ -67,7 +69,7 @@ def dropped(
         raise refused
     stop_checks(where, slug)
     now = clock.now()
-    with steps.waited(where.state, slug, "drop", now):
+    with steps.waited(where.state, slug, STEP, now):
         record = tasks.read(where.state, slug)
         refused = table.refusal(record.task, DROPPED, None)
         if refused is not None:
