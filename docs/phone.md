@@ -23,8 +23,8 @@ result, or why Lem refused. While you are [away](away.md#answer-from-the-inbox),
 that waits for you also links to its thread in the Inbox.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../assets/screens/phone-dark.png">
-  <img src="../assets/screens/phone-light.png" alt="The board on a phone: the column Waits for you, with three tasks" width="390" height="844">
+  <source media="(prefers-color-scheme: dark)" srcset="assets/screens/phone-dark.png">
+  <img src="assets/screens/phone-light.png" alt="The board on a phone: the column Waits for you, with three tasks" width="390" height="844">
 </picture>
 
 *The board on a phone. The picture shows demo data.*

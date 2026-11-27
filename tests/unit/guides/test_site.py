@@ -21,6 +21,8 @@ if TYPE_CHECKING:
 TREE = shapes.tree()
 CONFIG = tomllib.loads((built.ROOT / "zensical.toml").read_text(encoding="utf-8"))
 SITE_URL = CONFIG["project"]["site_url"]
+# The whole site: the landing page at its root, and the docs under docs/.
+SITE_ROOT = SITE_URL.removesuffix("docs/")
 # The tags that make the browser fetch a file, with the attribute that names it.
 FETCHED = (
     ("script", "src"),
@@ -242,6 +244,36 @@ def test_every_link_and_picture_of_the_site_names_a_file_and_a_heading_that_are_
                         f"{built.name_of(site, page)}: {name} (no such heading)"
                     )
     assert broken == []
+
+
+def test_every_reference_of_the_whole_site_names_a_file_that_is_there(
+    landing: Path,
+) -> None:
+    # Every page of _site: the landing page, the docs and the pages at the old addresses. A
+    # reference that leaves /lem/docs/ is still the site's, so the case above, which reads the
+    # docs alone, let four pictures of /lem/assets/ through on 2026-11-27.
+    root = urlsplit(SITE_ROOT)
+    broken = []
+    for page in built.pages(landing):
+        base = urljoin(SITE_ROOT, built.name_of(landing, page))
+        for tag in built.read(page).tags:
+            for name in {tag.attributes.get("href", ""), *fetched(tag)}:
+                if not name or name.startswith(("#", "mailto:", "data:")):
+                    continue
+                parts = urlsplit(urljoin(base, name))
+                if (parts.scheme, parts.netloc) != (root.scheme, root.netloc):
+                    continue
+                path = unquote(parts.path)
+                where = f"{built.name_of(landing, page)}: {tag.name} {name}"
+                if not path.startswith(root.path):
+                    broken.append(f"{where} (outside {SITE_ROOT})")
+                    continue
+                target = landing / path.removeprefix(root.path)
+                if path.endswith("/") or target.is_dir():
+                    target /= "index.html"
+                if not target.is_file():
+                    broken.append(f"{where} (no file {target.relative_to(landing)})")
+    assert broken == [], "\n".join(sorted(broken))
 
 
 def test_each_old_address_of_a_guide_leads_to_its_page_under_docs(

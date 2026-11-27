@@ -84,8 +84,8 @@ The board shows the same list in its view **Waits for you**. A task with two or 
 stack. Click it, and each thing shows as a row of its own, with its time and its button.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../assets/screens/task-dark.png">
-  <img src="../assets/screens/task-light.png" alt="A task on the board: the merge review that calls you, first on its Overview" width="1440" height="900">
+  <source media="(prefers-color-scheme: dark)" srcset="assets/screens/task-dark.png">
+  <img src="assets/screens/task-light.png" alt="A task on the board: the merge review that calls you, first on its Overview" width="1440" height="900">
 </picture>
 
 *A task on the board, on its Overview. The picture shows demo data.*
