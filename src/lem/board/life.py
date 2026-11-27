@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import anyio
 
 from lem.board import facts as server_facts
-from lem.board import serve_file
+from lem.board import serve_file, update
 from lem.board.duties import runner
 
 if TYPE_CHECKING:
@@ -25,9 +25,10 @@ if TYPE_CHECKING:
 async def lived(
     app: Starlette, *, facts: server_facts.Facts, home: Path, watcher: Watcher
 ) -> AsyncIterator[None]:
-    """The server's life: its facts in `serve.json`, its duties and the watcher of the
-    board's notifications while it runs; at the stop each ends, and the file goes."""
-    serve_file.write(home, facts)
+    """The server's life: its facts in `serve.json` and its release in the update record,
+    its duties and the watcher of the board's notifications while it runs; at the stop each
+    ends, and the file goes."""
+    recorded(home, facts)
     stopping = anyio.Event()
     async with anyio.create_task_group() as group:
         group.start_soon(runner.loop, home, stopping)
@@ -41,6 +42,12 @@ async def lived(
             stopping.set()
             await stopped(app)
     serve_file.remove(home, facts.pid)
+
+
+def recorded(home: Path, facts: server_facts.Facts) -> None:
+    """Write the facts of the server that starts, and record its release, before it serves."""
+    serve_file.write(home, facts)
+    update.at_start(home, facts.install.version)
 
 
 async def stopped(app: Starlette) -> None:

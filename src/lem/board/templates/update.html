@@ -1,0 +1,7 @@
+{% import 'parts.html' as p %}
+<div id="board-update" data-turbo-permanent data-controller="update" data-action="visibilitychange@document->update#show turbo:load@document->update#show pageshow@window->update#show pagehide@window->update#close">
+<div class="board-update" data-update-target="note" hidden>
+<div role="status"><b data-update-target="title"></b> <span data-update-target="line"></span></div>
+<button class="ibtn" type="button" data-action="update#close" aria-label="Close the update notice">{{ p.icon('xmark') }}</button>
+</div>
+</div>

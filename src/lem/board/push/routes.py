@@ -6,7 +6,7 @@ from functools import partial
 
 from starlette.routing import Route
 
-from lem.board import aliases, own, taskfiles
+from lem.board import aliases, own, taskfiles, update_page
 from lem.board.pages.routes import FALLBACK_ROUTES
 from lem.board.push import acts, manifest, reads
 
@@ -17,6 +17,8 @@ POST = ("POST",)
 ROUTES = (
     Route("/api/server", own.server, methods=GET),
     Route("/api/server/stop", own.stop, methods=POST),
+    Route("/api/server/update", update_page.available, methods=GET),
+    Route("/api/server/update", update_page.shown, methods=POST),
     Route("/api/workspaces", own.spaces, methods=GET),
     Route("/manifest.webmanifest", manifest.manifest, methods=GET),
     Route("/sw.js", reads.worker, methods=GET),
