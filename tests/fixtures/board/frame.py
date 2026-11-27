@@ -156,8 +156,8 @@ SIDEBAR = Sidebar(
             href=f"{BASE}/backlog",
             kbd="B",
             rail_title="Backlog · key B",
-            count=1,
-            count_title="The reviewer's items that wait for your start or drop",
+            count=4,
+            count_title="Backlog items outside Decided against",
         ),
         ViewButton(
             key="activity",

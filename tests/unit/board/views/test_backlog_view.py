@@ -15,10 +15,12 @@ from msgspec import structs
 from fixtures.board.frame import SEARCH
 from fixtures.board.moments import BASE, NOW
 from fixtures.board.shelves import BACKLOG, KEYS
+from lem.board.views import pages
 from lem.board.views.backlog import groups, search, view
 from lem.board.views.backlog.ledger import Adding
 from lem.board.views.backlog.read import read
 from lem.board.views.backlog.wanted import Wanted, wanted
+from lem.board.views.backlog_read import Entry
 from unit.board.views.afternoon import world
 
 if TYPE_CHECKING:
@@ -71,6 +73,19 @@ def records_of(seen: World) -> tuple:
     return tuple(each.record for each in seen.tasks)
 
 
+def laid_with_declined(folder: Path) -> World:
+    """The afternoon with a declined item in the backlog folder as well."""
+    seen = laid(folder)
+    assert seen.backlog is not None
+    declined = Entry(path="docs/backlog/declined.md", key="declined", worth="no")
+    return replace(
+        seen,
+        backlog=structs.replace(
+            seen.backlog, entries=(*seen.backlog.entries, declined)
+        ),
+    )
+
+
 def test_the_afternoon_s_backlog_is_the_reviewer_s_items_then_the_items_by_worth(
     tmp_path: Path,
 ) -> None:
@@ -105,8 +120,9 @@ def test_each_backlog_item_offers_only_the_acts_its_place_and_holder_allow(
     )
     assert tracked.holds.start and tracked.holds.start.fields[0].shown == QUERY
     assert tracked.holds.drop is None
-    assert seen.backlog is not None
-    assert groups.undecided(seen.backlog, records_of(seen)) == 1
+    made = pages.page(seen)
+    key = next(button for button in made.frame.sidebar.views if button.key == "backlog")
+    assert key.count == 4
 
 
 def test_the_search_lists_the_afternoon_s_items_in_the_order_of_the_view(
@@ -120,11 +136,26 @@ def test_the_search_lists_the_afternoon_s_items_in_the_order_of_the_view(
     assert search.search_rows(seen.backlog, records_of(seen), BASE) == items
 
 
-def test_the_backlog_key_counts_the_afternoon_s_one_undecided_item(
+def test_the_backlog_key_counts_all_items_except_those_decided_against(
     tmp_path: Path,
 ) -> None:
-    seen = laid(tmp_path)
-    assert groups.undecided(seen.backlog, records_of(seen)) == 1
+    made = pages.page(laid_with_declined(tmp_path))
+    key = next(button for button in made.frame.sidebar.views if button.key == "backlog")
+    assert key.count == 4
+
+
+def test_the_backlog_summary_leaves_decided_items_to_their_group(
+    tmp_path: Path,
+) -> None:
+    shown = view.backlog(laid_with_declined(tmp_path), Wanted())
+    chip = next(chip for chip in shown.filters if chip.shown == "no")
+    assert chip.count == 2
+    assert len(next(shelf for shelf in shown.shelves if shelf.key == "no").entries) == 2
+    assert shown.every.count == 6
+    assert shown.summary == (
+        "2 items in docs/backlog · 2 of the reviewer in .lem/state/backlog, 1 undecided · "
+        "read 16:00"
+    )
 
 
 def test_the_filter_of_the_address_turns_its_chip_on_and_a_second_press_off(

@@ -3,7 +3,7 @@ items, and the Backlog view's keys."""
 
 from typing import TYPE_CHECKING
 
-from lem.board.views.backlog import groups, search, view
+from lem.board.views.backlog import counts, search, view
 from lem.board.views.frame.page import Beside
 
 if TYPE_CHECKING:
@@ -19,7 +19,7 @@ def beside(world: World, switcher: Switcher | None = None) -> Beside:
     return Beside(
         switcher=switcher,
         problems=world.problems,
-        backlog=groups.undecided(world.backlog, records),
+        backlog=counts.work_count(world.backlog),
         keys=keys,
         entries=search.search_rows(world.backlog, records, world.viewer.base),
     )

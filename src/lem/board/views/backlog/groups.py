@@ -92,8 +92,7 @@ def worth_entries(shelved: Shelved, key: Worth) -> tuple[Entry, ...]:
 
 
 def undecided(shelved: Shelved | None, records: tuple[Record, ...]) -> int | None:
-    """How many of the reviewer's items no task holds, the count on the Backlog key; None with
-    no read. A refuted item waits for nobody and is never counted."""
+    """How many of the reviewer's items wait for a start or drop, None with no read."""
     if shelved is None:
         return None
     pairs = reviewer_entries(shelved, records)

@@ -32,7 +32,7 @@ VIEWS = (
     Spec(BACKLOG, BACKLOG, "Backlog", "list-check", "B"),
     Spec("activity", "activity", "Activity", "list-timeline", "A"),
 )
-BACKLOG_COUNT = "The reviewer's items that wait for your start or drop"
+BACKLOG_COUNT = "Backlog items outside Decided against"
 
 
 def buttons(

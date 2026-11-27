@@ -23,8 +23,7 @@ def sidebar(
     switcher: Switcher,
     problems: tuple[str, ...] = (),
 ) -> Sidebar:
-    """The sidebar; `backlog` is the count of the reviewer's items no task holds (None when
-    the backlog did not read)."""
+    """The sidebar; `backlog` counts items that are still work (None with no read)."""
     repo, base = world.place.repo, world.place.base
     found = notices.notices(world, counts)
     return Sidebar(

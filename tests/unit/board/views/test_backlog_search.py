@@ -9,7 +9,7 @@ from msgspec import structs
 
 from fixtures.board.held import CHECK
 from fixtures.board.moments import BASE
-from lem.board.views.backlog import groups, search
+from lem.board.views.backlog import counts, groups, search
 from lem.board.views.backlog_read import Entry, Shelved
 
 NOW = datetime(2026, 11, 22, 10, 0, tzinfo=UTC)
@@ -85,9 +85,7 @@ def test_criterion_2_every_backlog_item_is_a_row_and_no_read_gives_none() -> Non
     assert search.search_rows(None, (HOLDER,), BASE) == ()
 
 
-def test_the_count_on_the_backlog_key_is_the_reviewer_s_items_no_task_holds() -> None:
-    """`main`'s Search.test_the_count_on_the_backlog_key_is_the_reviewer_s_items_no_task_holds:
-    an item of the backlog folder is not counted, nor a held one; None with no read."""
+def test_the_undecided_count_is_the_reviewer_s_items_no_task_holds() -> None:
     assert groups.undecided(SHELVED, (HOLDER,)) == 1
     folder_only = structs.replace(SHELVED, entries=ENTRIES[:4])
     assert groups.undecided(folder_only, (HOLDER,)) == 0
@@ -116,6 +114,7 @@ def test_criterion_4_a_refuted_item_of_the_reviewer_is_not_counted_and_is_under_
             mine("a-flaky-check", "A flaky check"),
         ),
     )
+    assert counts.work_count(shelved) == 2
     assert groups.undecided(shelved, ()) == 2
     waiting = groups.reviewer_entries(shelved, ())
     assert [entry.key for entry, _ in waiting] == [
