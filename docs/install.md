@@ -52,8 +52,6 @@ claude plugin marketplace add pySilver/lem --scope project
 claude plugin install lem@lem --scope project
 ```
 
-For a GitHub SSH error, [update over HTTPS](update.md#update-over-https).
-
 `/lem init` commits `.claude/settings.json` only if git does not track it and it has only the two
 Lem entries. They are `extraKnownMarketplaces` for `lem` and `enabledPlugins` for `lem@lem`.
 Commit any other `.claude/settings.json` yourself. Each person installs Lem in their own clone
