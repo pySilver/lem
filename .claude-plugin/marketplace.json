@@ -10,10 +10,10 @@
       "source": {
         "source": "url",
         "url": "https://github.com/pySilver/lem.git",
-        "ref": "v0.4.1"
+        "ref": "v0.4.2"
       },
       "description": "Lem coordinates the agents that write code in one repository.",
-      "version": "0.4.1"
+      "version": "0.4.2"
     }
   ]
 }

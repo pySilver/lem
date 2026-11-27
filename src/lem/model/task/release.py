@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 # The release just before this one. A release moves it (AGENTS.md, "A release"); a unit case
 # holds it older than plugin.json.
-BEFORE = "0.4.0"
+BEFORE = "0.4.1"
 
 
 def say(slug: str, began: str, running: str, before: str) -> str:
