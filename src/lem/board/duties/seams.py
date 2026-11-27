@@ -1,16 +1,16 @@
-"""Where one failure stops: any failure of a duty gives its kind and words, which the runner
-shows on the workspace's board or writes to the server's log, and the other duties and
-workspaces still run (the seams of `serve.forge_loop` on `main`); a failure of a loop of the
-server's life ends that loop's turn, never the server.
+"""Where one duty's failure stops: any failure of a duty gives its kind and words, which the
+runner shows on the workspace's board or writes to the server's log, and the other duties and
+workspaces still run (the seams of `serve.forge_loop` on `main`).
 
 A refusal is a step that may not run now, and its words say all. Any other failure is a fault
-of Lem, whose traceback goes to the server's log once while its words stay the same: an import
-of a module whose file an update removed fails here too, and is a fault. A loop starts again
-after its failure; each loop waits before its first step, so its next try is one period later.
+of Lem, whose traceback goes to the server's log, at most once in `memory.TRACE_EVERY` for each
+duty of a workspace: an import of a module whose file an update removed fails here too, and is
+a fault.
 """
 
 import importlib
 import logging
+import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -18,13 +18,9 @@ from lem.board.duties import context
 from lem.kernel.errors import Refusal
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable
-
-    import anyio
+    from collections.abc import Callable
 
     from lem.board.duties.memory import Kept
-
-type Loop = Callable[[anyio.Event], Awaitable[None]]
 
 LOGGER = logging.getLogger(__name__)
 
@@ -80,33 +76,18 @@ def noted(
 
 
 def traced(kept: Kept, space: str, name: str, failed: Failure | None) -> None:
-    """The traceback of a fault of `name` in the server's log, once while its words stay the
-    same; a refusal has none."""
+    """The traceback of a fault of `name` in the server's log, at most once in TRACE_EVERY
+    with the count of the failures since; a refusal has none."""
     if failed is None or failed.refused:
-        kept.faults.pop(name, None)
         return
-    if kept.faults.get(name) == failed.said:
+    since = kept.traces.due(name, time.monotonic())
+    if since is None:
         return
-    kept.faults[name] = failed.said
     LOGGER.error(
-        "lem serve: %s: the traceback of the fault of %s, tried again at the next tick",
+        "lem serve: %s: the traceback of the fault of %s, tried again at the next tick "
+        "(%d more failures of it since its last traceback)",
         space,
         name,
+        since,
         exc_info=failed.error,
     )
-
-
-async def kept_up(name: str, loop: Loop, stopping: anyio.Event) -> None:
-    """Run the loop `name` until the server stops, and again after each of its failures,
-    whose traceback goes to the server's log once while its words stay the same."""
-    last = None
-    while not stopping.is_set():
-        try:
-            await loop(stopping)
-        except Exception as error:
-            said = said_of(error)
-            if said != last:
-                LOGGER.exception(
-                    "lem serve: %s of the board server failed, and runs again", name
-                )
-            last = said

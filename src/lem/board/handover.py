@@ -1,12 +1,13 @@
 """The hand-over of a board server whose own install was replaced (`replaced.py`) to the
 installed Lem.
 
-Every LOOK seconds the server looks at its install. When an update replaced it, the server
-starts `lem serve ensure` of the installed Lem once for each reason, as the serve hook does,
-with its output in the server's log. That `ensure` stops this server and starts its own: the
-swap of a newer install, with the board's update notice. With no installed Lem, or when that
-`ensure` leaves this server as it is, the server says why in its log and keeps serving what it
-can.
+Every LOOK seconds the server looks at its install. When an update replaced it, the server's
+answer to `GET /api/server` says why, and the server starts `lem serve ensure` of the installed
+Lem once for each reason, as the serve hook does, with its output in the server's log. That
+`ensure` stops this server, whatever its release, and starts its own: the swap of a newer
+install, with the board's update notice when the release is higher. With no installed Lem, or
+when that `ensure` leaves this server as it is, the server says why in its log and keeps
+serving what it can.
 """
 
 import os
@@ -16,9 +17,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import anyio
-
 from lem.board import install, replaced, start
+from lem.board.turns import Turn
 from lem.kernel import paths, release
 
 if TYPE_CHECKING:
@@ -27,6 +27,9 @@ if TYPE_CHECKING:
 # How often the server looks at its install, in seconds. A guess: the watcher's period, so that
 # few of its looks fail before the hand-over; each look reads a few files.
 LOOK = 5.0
+NAME = "the look at its install"
+# The folder of the standard library this process imports from, which `os` is a module of.
+STDLIB = Path(os.__file__).parent
 # The variable `lem serve ensure` sets for the server it starts, which would make the installed
 # Lem import the package of this server.
 IMPORTS = "PYTHONPATH"
@@ -57,16 +60,18 @@ def say(line: str) -> None:
 
 @dataclass(kw_only=True)
 class Handover:
-    """What the server started from, where it runs, and what it did so far: the reasons it
-    handed over for, those it found no installed Lem for, and the `ensure` it started, while
-    that runs."""
+    """What the server started from, where it runs, and what it did so far: why its install
+    is replaced now, which the server's answer says, the reasons it handed over for, those it
+    found no installed Lem for, and the `ensure` it started, while that runs."""
 
     version: str
     commit: str | None
     package: Path
+    stdlib: Path
     executable: Path
     home: Path
     environ: Mapping[str, str]
+    why: str | None = None
     handed: set[str] = field(default_factory=set)
     unserved: set[str] = field(default_factory=set)
     child: subprocess.Popen[bytes] | None = None
@@ -77,7 +82,8 @@ class Handover:
         if self.child is not None:
             self.ended(self.child)
             return
-        why = replaced.replaced(self.version, self.commit, self.package)
+        why = replaced.replaced(self.version, self.commit, self.package, self.stdlib)
+        self.why = why
         if why is None or why in self.handed:
             return
         command = replaced.successor(self.package, self.executable)
@@ -112,16 +118,13 @@ def watching(home: Path) -> Handover:
         version=release.running(),
         commit=install.commit_of(paths.PACKAGE),
         package=paths.PACKAGE,
+        stdlib=STDLIB,
         executable=Path(sys.executable),
         home=home,
         environ=os.environ,
     )
 
 
-async def loop(held: Handover, stopping: anyio.Event) -> None:
-    """Look every LOOK seconds, off the event loop, until the server stops."""
-    while not stopping.is_set():
-        with anyio.move_on_after(LOOK):
-            await stopping.wait()
-        if not stopping.is_set():
-            await anyio.to_thread.run_sync(held.look)
+def turn(held: Handover) -> Turn:
+    """The look as a loop of the server's life: one every LOOK seconds."""
+    return Turn(name=NAME, every=LOOK, step=held.look)

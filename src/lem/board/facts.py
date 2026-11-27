@@ -30,7 +30,9 @@ class Install(msgspec.Struct, frozen=True, kw_only=True):
 class Facts(msgspec.Struct, frozen=True, kw_only=True):
     """Who serves: the process, its port and address, the machine's name in its addresses and
     its other name, the install, Lem's home folder, the door's port and its address on the
-    tailnet (none while the door is closed), and since when."""
+    tailnet (none while the door is closed), since when, and why an update replaced its
+    install, which only its answer says (`handover.py`), so that `lem serve ensure` replaces
+    it whatever its release."""
 
     pid: int
     port: int
@@ -42,6 +44,7 @@ class Facts(msgspec.Struct, frozen=True, kw_only=True):
     door: int | None = None
     tailnet: str | None = None
     started: Moment
+    replaced: str | None = None
 
 
 class Shown(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):

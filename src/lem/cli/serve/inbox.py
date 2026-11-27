@@ -7,6 +7,7 @@ from lem.addons.inbox import link, schedule
 from lem.board.duties import runner
 from lem.board.inputs.parts import Link
 from lem.board.inputs.task.head import Fact
+from lem.board.turns import Turn
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -47,9 +48,13 @@ def bind(app: Starlette) -> None:
     """Give the server its Inbox callbacks before its lifespan starts."""
     state = app.state
     state.inbox_problems = {}
-    state.inbox_duty = partial(
-        schedule.run,
-        partial(targets, state.home, state.facts),
-        partial(reported, state.inbox_problems),
+    state.inbox_turn = Turn(
+        name="the look at the Inbox",
+        every=schedule.INTERVAL,
+        step=partial(
+            schedule.cycle,
+            partial(targets, state.home, state.facts),
+            partial(reported, state.inbox_problems),
+        ),
     )
     state.inbox_thread = thread

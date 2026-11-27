@@ -1,5 +1,6 @@
 """The add-ons at the board's real page, API and lifespan boundaries."""
 
+import time
 from typing import TYPE_CHECKING
 
 import httpx
@@ -13,7 +14,6 @@ from lem.store import owner, tasks
 from unit.board.pages.markup import Parsed
 
 if TYPE_CHECKING:
-    import anyio
     import pytest
 
     from unit.board.service.given import Board
@@ -79,28 +79,27 @@ def test_a_joined_board_names_its_machine_even_when_its_peer_has_no_workspaces(
     assert 'id="ws-switcher"' not in page
 
 
-def test_the_inbox_duty_runs_until_stop_and_uses_the_door_for_each_real_workspace(
+def test_the_inbox_turn_runs_in_the_servers_life_and_uses_the_door_for_each_real_workspace(
     opened: Board, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     observed: list[schedule.Target] = []
-    stopped = []
 
-    async def duty(
-        targets: schedule.Targets, report: schedule.Report, stopping: anyio.Event
-    ) -> None:
+    def cycle(targets: schedule.Targets, report: schedule.Report) -> None:
         observed.extend(targets())
         report("shop", "The Inbox did not answer.")
-        await stopping.wait()
-        stopped.append(True)
 
-    monkeypatch.setattr(schedule, "run", duty)
+    monkeypatch.setattr(schedule, "cycle", cycle)
+    monkeypatch.setattr(schedule, "INTERVAL", 0.01)
     inbox.bind(opened.app)
+    assert opened.app.state.inbox_turn.name == "the look at the Inbox"
     with opened.main() as client:
+        deadline = time.monotonic() + 10
+        while not observed and time.monotonic() < deadline:
+            time.sleep(0.01)
         assert "The Inbox did not answer." in client.get("/studio/shop/").text
-    (target,) = observed
+    target = observed[0]
     assert target.where.checkout == opened.checkout
     assert target.url == f"{opened.app.state.facts.tailnet.rstrip('/')}/studio/shop/"
-    assert stopped == [True]
 
 
 def test_the_task_page_shows_the_inbox_thread_and_explains_a_missing_address(

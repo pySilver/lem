@@ -10,10 +10,20 @@ claude plugin marketplace update lem
 claude plugin update lem@lem --scope project
 ```
 
-Then start a new session, which loads the new plugin. The board server replaces itself with the
-new release a few seconds after `brew upgrade`. The first board page that you open then shows one
-note with the new release and the release that it replaced. Update the plugin in each
-repository: one board server serves them all. `lem doctor` shows each one you missed.
+Then start a new session, which loads the new plugin and replaces the board server. The first
+board page that you open then shows one note with the new release and the release that it
+replaced. Update the plugin in each repository: one board server serves them all. `lem doctor`
+shows each one you missed.
+
+From the release after 0.4.2, the board server also replaces itself a few seconds after an
+update removes or changes its files. This occurs when:
+
+- `brew upgrade` removes or replaces the keg of the server's release.
+- `brew upgrade python@3.14` removes the Python that the server runs on.
+- An upgrade of a uv tool writes a new release into the server's folder.
+
+The server starts `lem serve ensure` of the installed Lem. If it finds no installed Lem, it
+writes the cause in `serve.log` and continues to serve what it can.
 
 - **The app and the plugin must have the same release.** When they differ, a command of Lem stops with
   one line that names the part that is behind. `lem doctor`, `lem help`, `lem version` and

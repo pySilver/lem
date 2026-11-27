@@ -1,20 +1,29 @@
-"""A board server whose own install was replaced: its package folder gone, another release or
-build written into it, or Homebrew's `opt/lem` moved to another keg; the installed Lem's `lem`
-by a path an update keeps; and the look that hands over once for each reason, says once when no
-installed Lem is there, and says when the hand-over left the server serving."""
+"""A board server whose own install was replaced: its package folder or its Python's standard
+library gone, another release or build written into it, or Homebrew's `opt/lem` moved to
+another keg; the installed Lem's `lem` by a path an update keeps; the look that hands over once
+for each reason, says once when no installed Lem is there, and says when the hand-over left the
+server serving; the server's answer that says why; and `lem serve ensure`, which replaces such
+a server whatever its release."""
 
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from lem.board import handover, replaced
+import msgspec
+
+from fakes.records import MOMENT
+from lem.board import ensure, handover, install, replaced
+from lem.board.facts import Facts
 from lem.board.install import BUILD_COMMIT
+from lem.kernel import paths
+from unit.board.service.given import made
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
     import pytest
 
+STDLIB = handover.STDLIB
 SITE = Path("libexec") / "lib" / "python3.14" / "site-packages" / "lem"
 MANIFEST = Path("data") / ".claude-plugin" / "plugin.json"
 
@@ -49,18 +58,18 @@ def test_an_install_that_is_still_the_installed_one_is_not_replaced(
 ) -> None:
     package = keg(tmp_path, "1.0.0", "abc")
     linked(tmp_path, "1.0.0")
-    assert replaced.replaced("1.0.0", "abc", package) is None
+    assert replaced.replaced("1.0.0", "abc", package, STDLIB) is None
     plain = tmp_path / "uv" / "lem"
     (plain / MANIFEST).parent.mkdir(parents=True)
     (plain / MANIFEST).write_text('{"version": "1.0.0"}')
-    assert replaced.replaced("1.0.0", None, plain) is None
+    assert replaced.replaced("1.0.0", None, plain, STDLIB) is None
 
 
 def test_a_package_folder_an_update_removed_is_a_replaced_install(
     tmp_path: Path,
 ) -> None:
     gone = tmp_path / "brew" / "Cellar" / "lem" / "0.4.1" / SITE
-    assert replaced.replaced("0.4.1", "abc", gone) == (
+    assert replaced.replaced("0.4.1", "abc", gone, STDLIB) == (
         f"its package folder {gone} is gone"
     )
 
@@ -68,7 +77,7 @@ def test_a_package_folder_an_update_removed_is_a_replaced_install(
 def test_a_folder_without_lems_files_is_a_replaced_install(tmp_path: Path) -> None:
     package = tmp_path / "lem"
     package.mkdir()
-    why = replaced.replaced("1.0.0", None, package)
+    why = replaced.replaced("1.0.0", None, package, STDLIB)
     assert why is not None
     assert why.startswith("Lem's files are neither in")
 
@@ -77,10 +86,10 @@ def test_another_release_or_build_in_the_same_folder_is_a_replaced_install(
     tmp_path: Path,
 ) -> None:
     package = keg(tmp_path, "1.0.0", "def")
-    assert replaced.replaced("0.9.0", "def", package) == (
+    assert replaced.replaced("0.9.0", "def", package, STDLIB) == (
         f"its package folder {package} holds Lem 1.0.0 now"
     )
-    assert replaced.replaced("1.0.0", "abc", package) == (
+    assert replaced.replaced("1.0.0", "abc", package, STDLIB) == (
         f"its package folder {package} holds the build def of Lem 1.0.0 now"
     )
 
@@ -91,10 +100,12 @@ def test_homebrews_opt_lem_on_another_keg_is_a_replaced_install(
     package = keg(tmp_path, "0.4.1", "abc")
     keg(tmp_path, "0.4.2", "def")
     linked(tmp_path, "0.4.1")
-    assert replaced.replaced("0.4.1", "abc", package) is None
+    assert replaced.replaced("0.4.1", "abc", package, STDLIB) is None
     newer = linked(tmp_path, "0.4.2")
     opt = tmp_path.resolve() / "opt" / "lem"
-    assert replaced.replaced("0.4.1", "abc", package) == f"{opt} names {newer} now"
+    assert (
+        replaced.replaced("0.4.1", "abc", package, STDLIB) == f"{opt} names {newer} now"
+    )
 
 
 def test_the_installed_lem_is_homebrews_opt_for_a_keg_else_beside_the_python(
@@ -145,6 +156,7 @@ def watcher_of(tmp_path: Path, package: Path) -> handover.Handover:
         version="0.4.1",
         commit="abc",
         package=package,
+        stdlib=STDLIB,
         executable=Path("/nowhere/bin/python"),
         home=tmp_path / "home",
         environ={"PYTHONPATH": str(package.parent)},
@@ -190,3 +202,61 @@ def test_the_look_says_once_when_no_installed_lem_is_there_then_hands_over_once(
         "lem serve: the hand-over ended with status 0, and this server still serves: "
         "the lines before this one say why\n"
     )
+
+
+def test_a_python_whose_standard_library_an_update_removed_is_a_replaced_install(
+    tmp_path: Path,
+) -> None:
+    package = keg(tmp_path, "0.4.2", "abc")
+    gone = tmp_path / "python@3.14" / "3.14.10" / "lib" / "python3.14"
+    assert replaced.replaced("0.4.2", "abc", package, gone) == (
+        f"the standard library of its Python, {gone}, is gone"
+    )
+
+
+def served_from(package: Path, *, why: str | None = None) -> Facts:
+    """A running server of this release from `package`, saying `why` it was replaced."""
+    mine = install.install_of()
+    return Facts(
+        pid=1,
+        port=4999,
+        url="http://127.0.0.1:4999/",
+        host="studio",
+        install=msgspec.structs.replace(mine, package=str(package)),
+        home="/nowhere",
+        started=MOMENT,
+        replaced=why,
+    )
+
+
+def test_ensure_replaces_a_server_of_a_replaced_install_whatever_its_release(
+    tmp_path: Path,
+) -> None:
+    here = served_from(paths.PACKAGE.resolve())
+    assert ensure.kept(here, None) is not None
+    gone = served_from(tmp_path / "brew" / "Cellar" / "lem" / "0.4.2" / SITE)
+    assert replaced.stale(gone) is not None
+    assert ensure.kept(gone, None) is None
+    said = "the standard library of its Python, /old/python3.14, is gone"
+    told = served_from(paths.PACKAGE.resolve(), why=said)
+    assert replaced.stale(told) == said
+    assert ensure.kept(told, None) is None
+    old = keg(tmp_path / "brew", "0.4.2", "abc")
+    keg(tmp_path / "brew", "0.4.2_1", "abc")
+    linked(tmp_path / "brew", "0.4.2")
+    assert replaced.stale(served_from(old)) is None
+    newer = linked(tmp_path / "brew", "0.4.2_1")
+    opt = (tmp_path / "brew").resolve() / "opt" / "lem"
+    assert replaced.stale(served_from(old)) == f"{opt} names {newer} now"
+
+
+def test_the_servers_answer_says_why_its_install_was_replaced(
+    tmp_path: Path,
+) -> None:
+    board = made(tmp_path, None)
+    with board.main() as client:
+        assert client.get("/api/server").json()["replaced"] is None
+        board.app.state.handover.why = "its package folder /gone/lem is gone"
+        assert client.get("/api/server").json()["replaced"] == (
+            "its package folder /gone/lem is gone"
+        )

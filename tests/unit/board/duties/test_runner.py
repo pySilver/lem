@@ -1,8 +1,10 @@
-"""The board server's runner under a failure: a duty's fault is its board's problem with its
-traceback in the server's log once, and the next tick tries it again; a refusal has no
-traceback; a workspace whose ports do not bind costs no other workspace; and a loop of the
-server's life that fails runs again while the board keeps serving."""
+"""The board server's runner and loops under a failure: a duty's fault is its board's problem
+with its traceback in the server's log at most once an hour, and the next tick tries it again;
+a refusal has no traceback; a workspace whose ports do not bind costs no other workspace; and a
+loop of the server's life whose step fails is every board's problem until a step runs, while
+the board keeps serving."""
 
+import itertools
 import logging
 import time
 from datetime import timedelta
@@ -11,14 +13,16 @@ from typing import TYPE_CHECKING
 import anyio
 
 from fakes.records import MOMENT
-from lem.board.duties import context, guard, prune, runner, seams
-from lem.board.duties.memory import MEMORY, Kept
+from lem.board import turns
+from lem.board.duties import context, guard, memory, prune, runner
+from lem.board.duties.memory import MEMORY, Kept, Traces
 from lem.kernel.errors import Fault, Refusal
 from unit.board.duties.world import duty_of
 from unit.board.service.given import made
 from unit.sessions.world import here_of
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
     import pytest
@@ -74,7 +78,44 @@ def test_a_duty_fault_is_its_boards_problem_and_the_next_tick_runs_it_again(
 
     assert calls == [0, 1, 2]
     assert kept.problems == {}
-    assert kept.faults == {}
+
+
+def test_a_duty_fault_whose_words_change_writes_one_traceback_an_hour(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    calls: list[int] = []
+
+    def tick(_duty: object) -> None:
+        calls.append(len(calls))
+        raise Fault(f"the fault of call {len(calls)}")
+
+    monkeypatch.setattr(runner, "DUTIES", (GUARD,))
+    monkeypatch.setattr(guard, "tick", tick)
+    here = here_of(tmp_path)
+    kept = Kept()
+    caplog.set_level(logging.ERROR)
+    for step in range(3):
+        runner.ticked(duty_of(here, MOMENT + timedelta(seconds=20 * step), kept))
+    assert kept.problems["guard"].endswith("Fault: the fault of call 3")
+    assert len(traces(caplog)) == 1
+
+    monkeypatch.setattr(memory, "TRACE_EVERY", 0.0)
+    runner.ticked(duty_of(here, MOMENT + timedelta(hours=2), kept))
+
+    [_, later] = traces(caplog)
+    assert "(2 more failures of it since its last traceback)" in later.getMessage()
+
+
+def test_a_trace_is_due_once_in_each_hour_with_the_count_of_failures_since() -> None:
+    held = Traces()
+    assert held.due("guard", 0.0) == 0
+    assert held.due("guard", 10.0) is None
+    assert held.due("guard", 3599.0) is None
+    assert held.due("guard", 3600.0) == 2
+    assert held.due("forge", 3600.0) == 0
+    assert held.due("guard", 3601.0) is None
 
 
 def test_a_duty_refusal_is_on_the_board_with_no_traceback(
@@ -154,58 +195,77 @@ def test_a_workspace_whose_ports_do_not_bind_costs_no_other_workspace(
     assert len(traces(caplog)) == 1
 
 
-def test_a_loop_that_fails_runs_again_and_the_board_keeps_serving(
+def test_a_loop_that_fails_is_every_boards_problem_until_a_step_runs_and_the_board_serves(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     ticks: list[int] = []
+    failing = [True]
 
     def tick(_home: Path) -> None:
         ticks.append(len(ticks))
-        if len(ticks) == 1:
+        if failing[0]:
             raise Fault(FAULT)
 
     monkeypatch.setattr(runner, "TICK", 0.05)
     monkeypatch.setattr(runner, "tick", tick)
     caplog.set_level(logging.ERROR)
     board = made(tmp_path, None)
+    said = "the duties of the board server failed, and runs again every 0.05 s"
 
     with board.main() as client:
-        deadline = time.monotonic() + 10
-        while len(ticks) < 3 and time.monotonic() < deadline:
-            time.sleep(0.05)
-        assert len(ticks) >= 3
+        waited(lambda: len(ticks) >= 3)
         assert client.get("/api/server").status_code == 200
+        assert f"{said}: Fault:" in client.get("/studio/shop/").text
+        failing[0] = False
+        waited(lambda: MEMORY.loop_problem(runner.NAME) is None)
+        assert said not in client.get("/studio/shop/").text
 
     [failed] = [one for one in caplog.records if "the duties" in one.getMessage()]
     assert failed.getMessage() == (
-        "lem serve: the duties of the board server failed, and runs again"
+        "lem serve: the duties of the board server failed, and runs again "
+        "(0 more failures of it since its last traceback)"
     )
     assert isinstance(failed.exc_info, tuple)
     assert isinstance(failed.exc_info[1], Fault)
 
 
-def test_a_loop_that_fails_alike_logs_its_traceback_once_and_a_new_failure_again(
+def waited(done: Callable[[], bool]) -> None:
+    """Wait until `done` holds, ten seconds at most."""
+    deadline = time.monotonic() + 10
+    while not done() and time.monotonic() < deadline:
+        time.sleep(0.02)
+    assert done()
+
+
+def test_a_step_that_fails_at_once_waits_its_period_and_logs_one_traceback(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    errors = [Fault(FAULT), Fault(FAULT), OSError("the disk is full"), None]
-
-    async def loop(stopping: anyio.Event) -> None:
-        error = errors.pop(0)
-        if error is None:
-            stopping.set()
-            return
-        raise error
+    errors: list[Exception | None] = [Fault(FAULT), OSError("the disk is full"), None]
+    moments: list[float] = []
 
     async def served() -> None:
-        await seams.kept_up("the watcher", loop, stopping=anyio.Event())
+        stopping = anyio.Event()
+
+        def step() -> None:
+            moments.append(time.monotonic())
+            error = errors.pop(0)
+            if error is not None:
+                raise error
+            anyio.from_thread.run_sync(stopping.set)
+
+        turn = turns.Turn(name="the watcher", every=0.2, step=step)
+        with anyio.fail_after(10):
+            await turns.kept_up(turn, stopping)
 
     caplog.set_level(logging.ERROR)
     anyio.run(served)
 
     assert errors == []
+    assert all(later - first >= 0.2 for first, later in itertools.pairwise(moments))
     failed = [
         one.exc_info[1] for one in caplog.records if isinstance(one.exc_info, tuple)
     ]
-    assert [type(one) for one in failed] == [Fault, OSError]
+    assert [type(one) for one in failed] == [Fault]
+    assert MEMORY.loop_problem("the watcher") is None

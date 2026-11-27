@@ -1,9 +1,6 @@
 """Poll the Inbox beside the board's other duties, at its own interval."""
 
-from functools import partial
 from typing import TYPE_CHECKING
-
-import anyio
 
 from lem.addons.inbox import workspace
 from lem.kernel import clock
@@ -47,12 +44,3 @@ def cycle(targets: Targets, report: Report) -> None:
             report(name, str(error))
         else:
             report(name, saved.problem)
-
-
-async def run(targets: Targets, report: Report, stopping: anyio.Event) -> None:
-    """Look only while the board runs, off the board's request thread."""
-    while not stopping.is_set():
-        with anyio.move_on_after(INTERVAL):
-            await stopping.wait()
-        if not stopping.is_set():
-            await anyio.to_thread.run_sync(partial(cycle, targets, report))

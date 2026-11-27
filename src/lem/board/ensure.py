@@ -4,9 +4,10 @@ It reads first where its home folder is, its port and who serves there; then dec
 then takes the serve lock, reads the port again under it, and acts: a stop goes on the
 connection that asked who serves. A server of another install that this one does not replace
 (the release before this one always) is left as it is with every file of the home folder, and
-the outcome says which install serves. `LEM_SERVE=off` makes `ensure` start nothing, end
-nothing and write nothing: a test sets it, and a test that starts a server on purpose leaves it
-out for that one call.
+the outcome says which install serves. A server whose install an update replaced
+(`replaced.stale`) is replaced whatever its release. `LEM_SERVE=off` makes `ensure` start
+nothing, end nothing and write nothing: a test sets it, and a test that starts a server on
+purpose leaves it out for that one call.
 """
 
 from typing import TYPE_CHECKING
@@ -23,6 +24,7 @@ from lem.board import (
 )
 from lem.board.facts import Facts, Shown
 from lem.board.halt import stopped
+from lem.board.replaced import stale
 from lem.board.update import swapped
 from lem.kernel import paths
 
@@ -67,6 +69,8 @@ def kept(found: Found, door: int | None, *, moved: bool = False) -> Shown | None
         return None
     if isinstance(found, heard.Other):
         return shown(found, started=False)
+    if stale(found) is not None:
+        return None
     mine = install.install_of()
     differ = moved or found.door != door
     if install.replaces(mine, found.install, settings_differ=differ):

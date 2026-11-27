@@ -1,8 +1,10 @@
 """A board server whose keg an update removed, as `brew upgrade` does: in the case's own home
 folder of Lem, on a free port that is never the owner's, under a Homebrew prefix of the case's
-own. The server says once that no installed Lem is there and keeps serving; once Homebrew's
-`opt/lem` names the new keg, it hands over to that `lem serve ensure`, which replaces it, and
-the board says once that Lem was updated, from which release.
+own. The server says once that no installed Lem is there, keeps serving, and its answer says
+why its install was replaced; once Homebrew's `opt/lem` names the new keg, it hands over to that
+`lem serve ensure`, which replaces it, whether the new keg holds a higher release or the same
+release at a new revision of the formula, and the board says once that Lem was updated, from
+which release, when the release is higher.
 
 The servers are held by the supervisor of `test_server_slice.py`, which signals a process only
 while its pid, start time and command line still match.
@@ -60,12 +62,12 @@ def logged(log: Path, line: str) -> str:
         time.sleep(0.1)
 
 
-def served_by(port: int, version: str) -> dict[str, Any]:
-    """What the server on the port says of itself once it is of `version`."""
+def served_after(port: int, pid: int) -> dict[str, Any]:
+    """What the server on the port says of itself once another process than `pid` serves."""
     deadline = time.monotonic() + WAIT
     while True:
         facts = facts_of(port)
-        if facts["install"]["version"] == version or time.monotonic() > deadline:
+        if facts["pid"] != pid or time.monotonic() > deadline:
             return facts
         time.sleep(0.1)
 
@@ -83,11 +85,22 @@ def brewed(keg: Path, record: Path) -> None:
     command.chmod(0o755)
 
 
+@pytest.mark.parametrize(
+    ("keg", "version", "notice"),
+    [
+        ("99.0.0", "99.0.0", {"version": "99.0.0", "previous_version": "1.0.0"}),
+        ("1.0.0_1", "1.0.0", None),
+    ],
+    ids=["a-higher-release", "the-same-release-at-a-new-revision"],
+)
 def test_a_server_whose_keg_an_update_removed_hands_over_and_the_board_says_lem_was_updated(
     tmp_path: Path,
     env: dict[str, str],
     supervisor: Supervisor,
     free_port: Callable[[], int],
+    keg: str,
+    version: str,
+    notice: dict[str, str] | None,
 ) -> None:
     repo = workspace_at(tmp_path / "repo")
     port = free_port()
@@ -105,28 +118,31 @@ def test_a_server_whose_keg_an_update_removed_hands_over_and_the_board_says_lem_
     command = brew.resolve() / "opt" / "lem" / "bin" / "lem"
     unserved = f"No installed Lem is at {command}, so this server keeps serving"
     assert unserved in logged(log, unserved)
-    assert facts_of(port)["pid"] == first["pid"]
+    gone = facts_of(port)
+    assert gone["pid"] == first["pid"]
+    assert gone["replaced"].startswith("its package folder ")
+    assert gone["replaced"].endswith(" is gone")
 
-    new = brew / "Cellar" / "lem" / "99.0.0"
-    make_install(new, "99.0.0")
+    new = brew / "Cellar" / "lem" / keg
+    make_install(new, version)
     record = tmp_path / "imports"
     brewed(new, record)
     (brew / "opt").mkdir()
     (brew / "opt" / "lem").symlink_to(new)
 
-    facts = served_by(port, "99.0.0")
-    assert facts["install"]["version"] == "99.0.0"
+    facts = served_after(port, first["pid"])
     assert facts["pid"] != first["pid"]
+    assert facts["install"]["version"] == version
+    assert facts["install"]["package"] == str((new / "src" / "lem").resolve())
+    assert facts["replaced"] is None
     assert f"It hands over to `{command} serve ensure`" in log.read_text()
     assert record.read_text().splitlines() == ["unset"]
     [replacing] = supervisor.running()
     assert replacing != serving
     assert replacing.pid == facts["pid"]
     base = f"http://127.0.0.1:{port}"
-    notice = f"{base}/api/server/update"
+    told = f"{base}/api/server/update"
     page = {"Origin": base}
-    assert httpx.post(notice, headers=page).json() == {
-        "version": "99.0.0",
-        "previous_version": "1.0.0",
-    }
-    assert httpx.post(notice, headers=page).status_code == 204
+    if notice is not None:
+        assert httpx.post(told, headers=page).json() == notice
+    assert httpx.post(told, headers=page).status_code == 204

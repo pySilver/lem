@@ -8,20 +8,19 @@ workspace still runs; a failed look at the forge is its board's problem, and the
 keeping and the next workspace still run; a failed duty is its board's problem, and the other
 duties, the keeping and the next workspace still run; a failed keeping is one line in the
 server's log. A failure that is no refusal is a fault of Lem: its traceback goes to the server's
-log too, once while its words stay the same, and each tick tries the step again. A failure of the
-tick itself ends no server: the server's life starts the loop again (`board/life.py`). A
-workspace of example tasks (its state folder holds `demo`) owes nothing.
+log too, at most once an hour for each duty, and each tick tries the step again. A failure of
+the tick itself ends no server (`board/turns.py`). A workspace of example tasks (its state
+folder holds `demo`) owes nothing.
 """
 
 import os
 from functools import partial
 from typing import TYPE_CHECKING
 
-import anyio
-
 from lem.board import machine, workspaces
 from lem.board.duties import context, seams
 from lem.board.duties.memory import MEMORY
+from lem.board.turns import Turn
 from lem.kernel import clock
 
 if TYPE_CHECKING:
@@ -34,6 +33,7 @@ if TYPE_CHECKING:
 # How often the duties run, in seconds (`serve.FORGE_TICK` on `main`): a guess, short beside
 # the forge's three minutes.
 TICK = 20
+NAME = "the duties"
 DUTIES = (
     "lem.board.duties.forge",
     "lem.board.duties.merge",
@@ -101,10 +101,6 @@ def worded(short: str, failed: seams.Failure | None) -> str | None:
     return f"the board's duty {short} failed: {failed.said}"
 
 
-async def loop(home: Path, stopping: anyio.Event) -> None:
-    """Run the duties every TICK seconds, off the event loop, until the server stops."""
-    while not stopping.is_set():
-        with anyio.move_on_after(TICK):
-            await stopping.wait()
-        if not stopping.is_set():
-            await anyio.to_thread.run_sync(tick, home)
+def turn(home: Path) -> Turn:
+    """The duties as a loop of the server's life: a tick every TICK seconds."""
+    return Turn(name=NAME, every=TICK, step=partial(tick, home))
