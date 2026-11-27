@@ -102,7 +102,9 @@ def test_each_guide_of_the_nav_is_a_page_and_no_maintainers_file_is(site: Path) 
         "assets/eslint.config.mjs",
     ):
         assert not (site / gone).exists(), f"{gone} of docs/ is on the site"
-    pages = {built.name_of(site, page) for page in built.pages(site)}
+    pages = {
+        built.name_of(site, page) for page in built.pages(site) if not built.leads(page)
+    }
     assert pages == {page_of(source) for source in NAV} | {"404.html"}
 
 
@@ -136,6 +138,8 @@ def test_no_page_loads_a_thing_from_another_host(site: Path) -> None:
 
 def test_each_page_links_to_the_repository(site: Path) -> None:
     for page in built.pages(site):
+        if built.leads(page):
+            continue
         assert any(
             tag.name == "a"
             and tag.attributes.get("href") == "https://github.com/pySilver/lem"
@@ -300,6 +304,33 @@ def test_each_old_address_of_a_guide_leads_to_its_page_under_docs(
         assert not any(tag.name == "script" for tag in tags), page
 
 
+def test_each_old_address_of_a_moved_guide_leads_to_its_part_of_the_page_that_holds_it(
+    landing: Path,
+) -> None:
+    # On 2026-11-27 the guides of Linear and of GitHub Issues went into one, Start from a ticket.
+    moved = {"linear": "linear", "github-issues": "github-issues"}
+    ids = built.read(landing / "docs/tickets/index.html").ids
+    for name, heading in moved.items():
+        assert f"{name}.md" not in NAV, name
+        assert heading in ids, heading
+        for page, target in (
+            (landing / name / "index.html", f"../docs/tickets/#{heading}"),
+            (landing / "docs" / name / "index.html", f"../tickets/#{heading}"),
+        ):
+            tags = built.read(page).tags
+            meta = [tag.attributes for tag in tags if tag.name == "meta"]
+            assert {"http-equiv": "refresh", "content": f"0; url={target}"} in meta, (
+                page
+            )
+            canonical = [
+                tag.attributes["href"]
+                for tag in tags
+                if tag.name == "link" and tag.attributes.get("rel") == "canonical"
+            ]
+            assert canonical == [f"{SITE_URL}tickets/#{heading}"], page
+            assert not any(tag.name == "script" for tag in tags), page
+
+
 def test_llms_txt_lists_each_guide_and_each_markdown_copy_is_beside_its_page(
     site: Path,
 ) -> None:
@@ -350,11 +381,7 @@ def test_zensicals_mermaid_loader_finds_no_chart_and_each_chart_is_a_pre_lem_cha
     for page in built.pages(site):
         for tag in built.read(page).tags:
             assert "mermaid" not in tag.attributes.get("class", ""), page
-    assert {page for page, _ in charts(site)} == {
-        "index.html",
-        "flow/index.html",
-        "merge/index.html",
-    }
+    assert {page for page, _ in charts(site)} == {"index.html", "merge/index.html"}
 
 
 def test_pele_draws_each_chart_of_the_site(site: Path) -> None:

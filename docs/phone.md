@@ -9,7 +9,8 @@ another device.
 1. Install Tailscale on the computer and on the phone.
 2. Sign in to both with the same account.
 3. In the Tailscale admin console, turn on MagicDNS and HTTPS.
-4. Type `/lem serve tailscale` in Claude Code.
+4. Type `/lem serve tailscale` in Claude Code. This opens the door: a second port of the board
+   server, 4537 by default, that only your Tailscale login reaches.
 5. On the phone, open the `tailscale` address that Lem gives.
 6. In the browser's share menu, select "Add to Home Screen".
 7. Open Lem from the Home Screen, and open "Waits for you".
@@ -18,9 +19,8 @@ another device.
 The phone then gets a notification when something starts to wait for you. When the computer
 sleeps, the phone cannot open the board.
 
-On a phone, **Merge…**, **Park**, **Drop** and a card open over the task. The page then shows the
-result, or why Lem refused. While you are away, a task that waits for you can link to its thread
-in the optional [Plannotator Inbox](away.md#answer-from-the-inbox).
+On a phone, **Merge…**, **Park**, **Drop** and a card (a question of the task) open over the
+task. The page then shows the result, or why Lem refused.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/screens/phone-dark.png">
@@ -42,49 +42,28 @@ to `push.json` in the same folder.
 2. On the computer whose address you open, type `/lem serve join HOST[:PORT]`.
 
 `HOST` is the Tailscale name of the other computer. Lem uses this computer's door port if you
-omit `:PORT`. The default door port is 4537.
+omit `:PORT`.
 
-- If both doors use the same port, type `/lem serve join silvers-mac-mini`.
+- If both doors use the same port, type `/lem serve join mac-mini`.
 - If the other door uses a different port, add that port. For port 4538, type
-  `/lem serve join silvers-mac-mini:4538`.
+  `/lem serve join mac-mini:4538`.
 
 That address then lists the repositories of both computers. A computer that does not answer shows
 "not reachable". `/lem serve leave HOST` removes it.
 
-The browser tab, the sidebar header, and the workspace switcher show the machine and workspace.
-Each workspace has its own `/HOST/WORKSPACE/` address, even when two workspaces have the same name.
-
-## The server
-
-A new Claude Code session in a repository that uses Lem starts the server, and so does the first
-`lem` command of any session. The first session after an update replaces it.
-
-The server can merge a green change that is not careful when the verdict is merge and
-`branch.land` is `"agent"`. With `branch.land = "owner"`, you merge even if the verdict is merge.
-See [the merge rules](merge.md#the-merge-review).
-
-Each hour the server removes the old files, as [`state.keep_days`](settings.md#state) tells. While
-you are away, it sends what waits for you to the Plannotator Inbox if it runs. It never types into a session.
-
-The server also watches each task that builds or lands. When its session does no work for 45
-minutes, the server asks the session for its status. After 10 more minutes with no work, the server
-opens a fresh session one time. When that session also stops, the task waits for you as "stopped".
-
-When the server cannot read the work of a session, it uses only the record of the task. After 45
-minutes with no change, it asks the session for its status. After 10 more minutes, the task waits
-for you as "stopped", and the row says that Lem cannot read its session. "Open a session" then
-opens a fresh one.
+The browser tab, the sidebar header and the switcher show the computer and the repository. Each
+repository has its own `/HOST/REPOSITORY/` address, even when two repositories have the same name.
 
 ## Commands
 
 Type these in Claude Code:
 
-- `/lem serve`: starts the server if necessary, and gives the board's address.
-- `/lem serve tailscale`, `/lem serve tailscale off`: lets your phone in, or closes the door.
+- `/lem serve`: starts the [board server](board.md#the-server) if necessary, and gives the
+  board's address.
+- `/lem serve tailscale`, `/lem serve tailscale off`: opens or closes the door.
 - `/lem serve join HOST[:PORT]`, `/lem serve leave HOST`: adds or removes a second computer.
-- `/lem serve stop`: stops the server.
 
-After a remote login with no Claude Code, run Lem's command:
+After a remote login with no Claude Code, run Lem's command to start the server:
 
 ```bash
 lem serve ensure

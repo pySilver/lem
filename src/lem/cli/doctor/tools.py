@@ -44,9 +44,8 @@ def tool_row(look: Look, tool: tool_words.Tool) -> Row:
 
 
 def gh_row(look: Look) -> Row:
-    """The GitHub CLI, and whether it is signed in. Optional: a machine may hold repositories
-    that do not land on GitHub, and `lem land propose` and the board's look at GitHub say so
-    where it is missing."""
+    """The GitHub CLI, and whether it is signed in. Required, since every task lands through a
+    GitHub pull request; a login that is missing is said in the row's detail."""
     row = tool_row(look, tool_words.GH)
     path = look.which(tool_words.GH.program)
     if path is None:

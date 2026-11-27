@@ -124,9 +124,12 @@ def test_agterm_without_its_skill_fails_and_says_outside_a_session(
     assert agents.agterm_rows(stage.look())[1].found
 
 
-def test_gh_is_optional_found_not_signed_in_or_signed_in(stage: Stage) -> None:
+def test_gh_is_required_found_not_signed_in_or_signed_in(stage: Stage) -> None:
     absent = gh_row(stage.look())
-    assert (absent.need, absent.found, absent.signed_in) == ("optional", False, False)
+    assert (absent.need, absent.found, absent.signed_in) == ("required", False, False)
+    assert absent.without_it is not None
+    assert absent.without_it.startswith("no task lands")
+    assert reported((absent,)).ok is False
     stage.tool("gh", "gh version 2.80", code=1)
     out = gh_row(stage.look())
     assert (out.found, out.signed_in) == (True, False)

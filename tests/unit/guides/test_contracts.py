@@ -35,32 +35,36 @@ def test_standard_track_waits_for_the_owner_only_when_needed() -> None:
         "an interview, a disputed criterion or a request from another person"
         in standard
     )
-    for name in ("flow.md", "index.md"):
-        chart = text_of(name).split("```mermaid", 1)[1].split("```", 1)[0]
-        assert "Interview if needed, then criteria" in chart
-        assert "approval if needed" in chart
+    chart = text_of("index.md").split("```mermaid", 1)[1].split("```", 1)[0]
+    assert "Interview if needed, then criteria" in chart
+    assert "approval if needed" in chart
+    assert "```mermaid" not in text_of("flow.md"), (
+        "the Overview's chart is the one chart"
+    )
 
 
-def test_board_approval_can_carry_and_the_phone_respects_merge_authority() -> None:
+def test_board_approval_can_carry_and_the_board_server_merges_only_a_safe_change() -> (
+    None
+):
     board = guide("board.md")
     assert "**Approve** authorizes" in board
     assert "approval can carry to a new commit" in board
     assert "(merge.md#merge-it)" in board
-    phone = guide("phone.md")
-    assert '`branch.land = "owner"`' in phone
-    assert "you merge even if the verdict is merge" in phone
-    assert "(merge.md#the-merge-review)" in phone
+    assert "merges each [safe change](merge.md#the-merge-review)" in board
 
 
-def test_moved_base_has_two_outcomes_for_an_automatic_merge() -> None:
+def test_a_moved_base_is_read_and_an_approved_task_is_rebased_and_checked_again() -> (
+    None
+):
     merge = guide("merge.md")
     assert (
-        "a fresh merge agent reads any change to the base tree since the checks"
-        in merge
+        "If the base moved, Lem reads the change, and rebases when necessary." in merge
     )
-    assert "`Base: safe.`" in merge and "without a new run" in merge
-    assert "`Base: another round.`" in merge and "runs the checks again" in merge
-    assert "the pull request gives both bases and the reason" in merge
+    assert (
+        "Lem always rebases an approved task on a moved base, and runs the checks again "
+        "before the merge." in merge
+    )
+    assert "`Base:" not in merge, "the words between agents stay out of the guide"
 
 
 def test_squash_body_names_decisions_and_the_pull_request_lists_fixes() -> None:
@@ -83,15 +87,13 @@ def test_green_accounts_for_the_owner_and_the_merge_review() -> None:
         )
 
 
-def test_board_waits_in_the_same_group_go_oldest_first() -> None:
+def test_board_waits_go_most_urgent_first_and_in_a_group_oldest_first() -> None:
     guide_text = guide("when-lem-needs-you.md")
-    groups = guide_text.split("in this order:", 1)[1].split("A task is on the list", 1)[
-        0
-    ]
-    same = groups.split("2. ", 1)[1].split("3. ", 1)[0]
-    for reason in ("criteria", "your action or a fact", "cards", "dropped", "blocked"):
-        assert reason in same
-    assert "the oldest wait comes first" in same
+    assert (
+        "The most urgent thing comes first: breakers and stopped sessions, then questions "
+        "and other waits, then plans to read, then merges. In a group, the oldest wait "
+        "comes first." in guide_text
+    )
 
 
 def test_home_lists_the_helpers_and_requires_consent_for_jobs() -> None:

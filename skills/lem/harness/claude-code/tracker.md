@@ -11,7 +11,7 @@ The GitHub tracker needs GitHub's `gh`, installed and signed in, and no MCP serv
 the lines of `lem issue`, which the permission rule `Bash(lem *)` already covers.
 
 The Linear tracker's server is an MCP server, and Claude Code shows its tools as `mcp__SERVER__NAME`, with
-the name the server was added under as SERVER (`linear` in `docs/linear.md`; a second
+the name the server was added under as SERVER (`linear` in the part "Linear" of `docs/tickets.md`; a second
 workspace is a second server with a name of its own, and the skill says which one a ticket
 takes). A session that was running when the server was added
 does not have them, and a new one does (seen on 2026-11-14 with the Linear server). In a new

@@ -72,7 +72,7 @@ def test_the_command_keeps_the_name_lem() -> None:
 
 
 def test_one_lem_for_one_repository_the_plugin_installs_for_the_project() -> None:
-    for path in ("README.md", "docs/index.md", "docs/install.md"):
+    for path in ("README.md", "docs/install.md"):
         lines = re.findall(r"^claude plugin \S+ .*$", text(path), flags=re.MULTILINE)
         assert lines, path
         assert all(line.endswith("--scope project") for line in lines), path
@@ -127,7 +127,7 @@ def test_a_shipped_skills_name_follows_lem_as_agents_md_says() -> None:
 
 
 def test_what_he_names_in_the_interview_is_a_direction_the_plan_follows() -> None:
-    assert "The plan uses a library or an approach that you name." in flat(
+    assert "If you name a library or an approach, the plan uses it." in flat(
         "docs/flow.md"
     )
 

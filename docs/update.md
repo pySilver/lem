@@ -16,7 +16,7 @@ repository: one board server serves them all. `lem doctor` shows each one you mi
 - **The app and the plugin must have the same release.** When they differ, a command of Lem stops with
   one line that names the part that is behind. `lem doctor`, `lem help` and `lem version` still
   answer.
-- **Auto-update** of the plugin is off when you install Lem. To turn it on, type `/plugin`, open
+- **Auto-update** of the plugin is off by default. To turn it on, type `/plugin`, open
   **Marketplaces**, select `lem`, and turn on auto-update. Then update the app too.
 - **A live session keeps its old plugin loaded.** If the app has a different release, Lem refuses
   task commands in that session. Start a new session with the matching plugin.
@@ -25,9 +25,6 @@ repository: one board server serves them all. `lem doctor` shows each one you mi
 - **A release older than a teammate's**: git does not share `.lem/state/`, so your tasks stay
   yours. When the teammate's release adds a key to `.lem/settings.toml`, your Lem stops at each
   command and names the key. Update, and Lem goes on.
-- **A task in the current record format begun two releases back** stops, and its message gives the way on
-  ([below](#a-task-of-an-older-release)).
-- **A bad release** is not taken back: a newer release repairs it.
 
 ## A task of an older release
 

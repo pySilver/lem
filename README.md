@@ -13,8 +13,9 @@ For a developer who works alone, and for a team on Linear or GitHub Issues.
 
 Lem is a plugin for Claude Code that works closely with the [agterm](https://agterm.com) terminal:
 each task gets its own agterm session and its own worktree. Agents plan, build, test and review
-the change. A fresh merge agent reviews each pull request. Lem merges a green change that is not
-careful only with a merge verdict and `branch.land = "agent"`. In other cases, you merge it.
+the change. A fresh merge agent reviews each pull request. Lem merges a safe green change. You
+merge the others. [The merge](https://pysilver.github.io/lem/docs/merge/) tells which change is
+safe.
 
 **The documentation is on the site: [pysilver.github.io/lem](https://pysilver.github.io/lem/).**
 
@@ -28,8 +29,8 @@ claude plugin marketplace add pySilver/lem --scope project
 claude plugin install lem@lem --scope project
 ```
 
-Then start Claude Code in agterm there, and type `/lem init`.
-[Install](https://pysilver.github.io/lem/docs/install/) lists the tools that Lem needs.
+Then start Claude Code in agterm there, and type `/lem init`. Lem needs agterm and the tools of
+[Install](https://pysilver.github.io/lem/docs/install/), and your repository must be on GitHub.
 
 ## Guides
 

@@ -46,7 +46,7 @@ server (the harness file says which, and whether a tool loads on its first use):
 the Linear MCP server connected in your agent, whatever its name. With more than one (one for each
 workspace), use the one whose teams hold the ticket's team key: `get_team` with the key on each,
 and the one that answers. When your session cannot call them, the server was added after the
-session started, or it is not signed in: say that, name `docs/linear.md`, and stop. Never fall
+session started, or it is not signed in: say that, name the part "Linear" of `docs/tickets.md`, and stop. Never fall
 back to a guess of the ticket from its URL.
 
 What follows about each tool's answer was read from the real server on 2026-11-15, with one

@@ -1,7 +1,8 @@
 """The two first pages of the site. The landing page at its root, landing/index.html by hand: the
 scene, the opening, the install lines of the install guide, the way into each page of the docs and
-no guide text of its own. The docs' first page, built from docs/index.md: the sections a visitor
-reads in order. Both in the board's hues."""
+no guide text of its own. The docs' first page, the Overview, built from docs/index.md: the
+sections a visitor reads in order, with no pitch or install lines of the landing page. Both in the
+board's hues."""
 
 import json
 import re
@@ -27,14 +28,14 @@ FOR = "For a developer who works alone, and for a team on Linear or GitHub Issue
 SECTIONS = [
     "How a task goes",
     "What you can rely on",
-    "The board, also on your phone",
-    "Start from a ticket",
-    "Lem learns your repository",
+    "The board, tickets and files",
     "What you type",
 ]
+# What the Overview tells of what Lem needs: agterm, the tools of Install, and GitHub.
+NEEDS = (
+    "Lem needs agterm and the tools of Install, and your repository must be on GitHub."
+)
 HUES = ("--lead", "--lem", "--you", "--bad", "--gate", "--ok")
-# The visible text of the docs' first page, as the hand-kept landing page had it before 2026-11-26.
-HOME_WORDS = (800, 1600)
 SITE_CSS = ROOT / "docs/assets/lem-site.css"
 LANDING_CSS = ROOT / "landing/style.css"
 # The landing page holds the pitch, the install and the names of the guides: 190 words on
@@ -98,7 +99,7 @@ def test_the_opening_has_the_lead_who_lem_is_for_the_install_lines_and_agterm(
     words = visible(home(landing))
     assert words.index(LEAD) < words.index(FOR) < words.index(INSTALL[0])
     assert "Lem is a plugin for Claude Code that works closely with agterm." in words
-    assert "Lem needs agterm." in words
+    assert NEEDS in words
     for line in INSTALL:
         assert line in words, line
 
@@ -175,12 +176,12 @@ def test_the_install_button_copies_the_commands(site: Path) -> None:
     node = shutil.which("node")
     if node is None:
         pytest.skip("no node on PATH to run the built site's JavaScript")
-    page = home(site)
-    reader = built.read(site / "index.html")
+    page = (site / "install/index.html").read_text(encoding="utf-8")
+    reader = built.read(site / "install/index.html")
     [(kind, block)] = [
         block for block in reader.blocks if block[1].startswith(INSTALL[0])
     ]
-    assert block.splitlines() == list(INSTALL)
+    assert block.splitlines() == [INSTALL[0]]
     [pre] = [
         tag.attributes
         for tag in reader.tags
@@ -194,7 +195,11 @@ def test_the_install_button_copies_the_commands(site: Path) -> None:
     config = re.search(r'<script id="__config"[^>]*>(.*?)</script>', page)
     assert config is not None
     ran = subprocess.run(
-        [node, str(ROOT / "tests/unit/guides/copy.mjs"), str(site / source)],
+        [
+            node,
+            str(ROOT / "tests/unit/guides/copy.mjs"),
+            str(site / "install" / source),
+        ],
         input=json.dumps(
             {
                 "config": config[1],
@@ -211,7 +216,7 @@ def test_the_install_button_copies_the_commands(site: Path) -> None:
     assert ran.returncode == 0, ran.stderr
 
 
-def test_the_sections_stand_in_order_and_say_what_the_landing_page_said(
+def test_the_sections_stand_in_order_and_hold_no_pitch_of_the_landing_page(
     site: Path,
 ) -> None:
     page = home(site)
@@ -226,24 +231,15 @@ def test_the_sections_stand_in_order_and_say_what_the_landing_page_said(
         "A step that nobody can undo stops the task, and waits for you.",
         "Lem never pushes over a commit that it did not push.",
         "Green usually lets you merge without your own read.",
-        "/lem new ABC-12",
-        "/lem new 42",
-        "Each developer has their own board, with the tasks on their own computer.",
-        ".lem/profile.md",
-        ".lem/personas/",
-        ".lem/lessons.md",
-        "docs/rulings.md",
-        "a second model family reviews the larger changes",
+        "Lem merges a safe green change, and you merge the others.",
+        NEEDS,
+        "Start from a ticket",
+        "the files of Lem",
         "MIT License",
     ):
         assert sentence in words, sentence
-
-
-def test_the_home_page_has_800_to_1600_words_of_visible_text(site: Path) -> None:
-    count = len(
-        [word for word in article(site).split() if re.search(r"[A-Za-z0-9]", word)]
-    )
-    assert HOME_WORDS[0] <= count <= HOME_WORDS[1], count
+    for pitch in (LEAD, FOR, *INSTALL, "works closely with agterm"):
+        assert pitch not in words, pitch
 
 
 def test_the_tab_icon_is_the_figure_alone_by_day_and_by_night(

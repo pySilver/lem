@@ -41,20 +41,31 @@ def test_git_and_eslint_ignore_the_site_build() -> None:
     assert (git.returncode, "'_site/'" in ignored) == (0, True)
 
 
-def test_the_merge_guide_states_what_keeps_approval_and_the_prior_verdict() -> None:
+def test_the_merge_guide_states_what_keeps_approval() -> None:
     guide = flat(text_of("merge.md"))
     assert 'while the reasons for "not green" stay the same' in guide
     assert "Approve the pull request again if your approval ends." in guide
-    assert "the merge agent gave a verdict before the conflict" in guide
 
 
-def test_the_charts_and_readme_condition_an_automatic_merge() -> None:
-    for name in ("index.md", "flow.md", "merge.md"):
-        chart = text_of(name).split("```mermaid\n", 1)[1].split("```", 1)[0]
-        assert "green, not careful" in chart, name
-        assert "settings permit, verdict is merge" in chart, name
+def test_the_merge_rule_is_in_the_merge_guide_and_the_settings_and_one_line_elsewhere() -> (
+    None
+):
+    chart = text_of("merge.md").split("```mermaid\n", 1)[1].split("```", 1)[0]
+    assert "green, not careful" in chart
+    assert "settings permit, verdict is merge" in chart
+    merge = flat(text_of("merge.md"))
+    assert (
+        "Lem merges a **safe** change itself: it is green and not careful, the verdict is "
+        'merge, and [`branch.land`](settings.md#branch) is `"agent"`' in merge
+    )
+    assert "[safe change](merge.md#the-merge-review)" in flat(text_of("settings.md"))
+    home = text_of("index.md")
+    assert "verdict is merge" not in home.split("```mermaid\n", 1)[1].split("```", 1)[0]
+    assert "Lem merges a safe green change, and you merge the others." in flat(home)
     readme = flat((built.ROOT / "README.md").read_text(encoding="utf-8"))
-    assert 'with a merge verdict and `branch.land = "agent"`' in readme
+    assert "Lem merges a safe green change. You merge the others." in readme
+    for name in ("index.md", "flow.md", "phone.md", "board.md", "../README.md"):
+        assert "branch.land" not in (DOCS / name).read_text(encoding="utf-8"), name
 
 
 def test_the_merge_guide_limits_what_the_pull_request_says_about_a_conflict() -> None:
@@ -75,17 +86,18 @@ def test_the_install_guide_reserves_existing_plugin_settings_for_the_owner() -> 
     assert "Commit any other `.claude/settings.json` yourself." in guide
 
 
-def test_the_issue_guide_keeps_the_state_of_an_issue_after_a_drop() -> None:
-    intro, body = text_of("github-issues.md").split("## What Lem writes", 1)
-    assert "keeps its current state" in flat(intro)
-    stopped = body.split("## When a task stops with no merge", 1)[1].split("##", 1)[0]
-    assert "An open issue stays open and a closed issue stays closed." in flat(stopped)
+def test_the_ticket_guide_keeps_the_state_of_an_issue_after_a_drop() -> None:
+    issues = text_of("tickets.md").split("\n## GitHub Issues\n", 1)[1]
+    writes = issues.split("Lem writes to the issue at these steps:", 1)[1]
+    stopped = flat(writes.split("\n### ", 1)[0].split("4. ", 1)[1])
+    assert stopped.startswith("The task stops with no merge")
+    assert "An open issue stays open and a closed issue stays closed." in stopped
 
 
 def test_the_merge_guide_tells_the_owner_how_to_order_several_merges() -> None:
     guide = flat(text_of("merge.md"))
     assert "Lem merges them in the order you give." in guide
-    assert "If you give no order, Lem starts with the oldest proposal." in guide
+    assert "If you give no order, Lem starts with the oldest pull request." in guide
 
 
 def test_a_note_that_changes_no_criterion_leads_to_the_same_criteria() -> None:

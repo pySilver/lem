@@ -31,7 +31,7 @@ extra_css = ["assets/lem-site.css"]
 extra_javascript = ["assets/lem-charts.js", "assets/lem-transcripts.js"]
 
 nav = [
-  { "Home" = "index.md" },
+  { "Overview" = "index.md" },
   { "How a task goes" = "flow.md" },
   { "When Lem needs you" = "when-lem-needs-you.md" },
   { "While you are away" = "away.md" },
@@ -42,8 +42,7 @@ nav = [
   { "Install" = "install.md" },
   { "Update and remove" = "update.md" },
   { "Settings" = "settings.md" },
-  { "Connect Linear" = "linear.md" },
-  { "Connect GitHub Issues" = "github-issues.md" },
+  { "Start from a ticket" = "tickets.md" },
 ]
 
 [project.theme]
@@ -79,7 +78,7 @@ accent = "custom"
 # the page menu of overrides/main.html links it.
 [project.plugins.llmstxt]
 markdown_description = "Lem is a plugin for Claude Code that works closely with agterm. Each guide below is in ASD-STE100 Simplified Technical English."
-sections = { "Start" = ["index.md", "install.md", "update.md"], "A task" = ["flow.md", "when-lem-needs-you.md", "away.md", "pull-request.md", "merge.md"], "The board" = ["board.md", "phone.md"], "Settings and trackers" = ["settings.md", "linear.md", "github-issues.md"] }
+sections = { "Start" = ["index.md", "install.md", "update.md"], "A task" = ["flow.md", "when-lem-needs-you.md", "away.md", "pull-request.md", "merge.md"], "The board" = ["board.md", "phone.md"], "Settings and tickets" = ["settings.md", "tickets.md"] }
 
 [project.markdown_extensions]
 admonition = {}

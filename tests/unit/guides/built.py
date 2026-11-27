@@ -97,6 +97,11 @@ def pages(site: Path) -> list[Path]:
     return sorted(site.rglob("*.html"))
 
 
+def leads(page: Path) -> bool:
+    """Whether `page` only leads to another page: one at an old address of a guide."""
+    return 'http-equiv="refresh"' in page.read_text(encoding="utf-8")
+
+
 def name_of(site: Path, page: Path) -> str:
     """A page by its path in the site, as a case names it."""
     return str(page.relative_to(site))

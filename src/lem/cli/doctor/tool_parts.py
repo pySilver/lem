@@ -31,7 +31,7 @@ TOOL_PARTS: tuple[Part, ...] = (
     tooled(tool_words.REVMUX),
     skilled(skill_words.REVMUX),
     ("agterm", REQUIRED, agents.agterm_rows),
-    ("gh", OPTIONAL, gh_row),
+    ("gh", REQUIRED, gh_row),
     skilled(skill_words.WEBREV),
     skilled(skill_words.AGDOC),
     skilled(skill_words.BACKLOG),

@@ -17,13 +17,11 @@ DOCS = ROOT / "docs"
 CONFIG = tomllib.loads((ROOT / "zensical.toml").read_text(encoding="utf-8"))
 NAV = [next(iter(entry.values())) for entry in CONFIG["project"]["nav"]]
 # docs/settings.md is the settings step's reference, one to one with the settings' structs
-# (tests/unit/settings/test_docs.py), and it may be longer; the home page holds the sections of a
-# landing page.
+# (tests/unit/settings/test_docs.py), and it may be longer; the Overview's tables and pictures
+# would count in the word count of the source, so it is held by its prose alone.
 GUIDES = [name for name in NAV if name not in {"settings.md", "index.md"}]
 # The owner's ruling: "A guide of `docs/` aims at under 800 words, or a bit more when needed."
 WORDS = 800
-# A landing page of 800 to 1600 words of visible text, as the hand-kept page had.
-HOME_WORDS = 1600
 # ASD-STE100: 25 words at most in a descriptive sentence.
 SENTENCE = 25
 # The maintainer's files of docs/ that stay off the site.
@@ -107,10 +105,9 @@ def test_the_site_is_built_into_site_with_no_web_font_and_no_switch_of_the_theme
     )
 
 
-def test_each_guide_aims_at_under_800_words_and_the_home_page_at_1600() -> None:
-    counts = {name: words(prose(text_of(name))) for name in GUIDES}
+def test_each_guide_and_the_overview_aim_at_under_800_words() -> None:
+    counts = {name: words(prose(text_of(name))) for name in [*GUIDES, "index.md"]}
     assert {name: count for name, count in counts.items() if count >= WORDS} == {}
-    assert words(prose(text_of("index.md"))) <= HOME_WORDS
 
 
 def test_no_sentence_of_a_guide_or_the_readme_has_more_than_25_words() -> None:
@@ -146,22 +143,23 @@ def test_the_readme_and_the_home_page_name_no_operating_system_and_no_plannotato
         assert "plannotator" not in text.lower(), path
 
 
-def test_the_readme_points_to_the_site_and_installs_as_the_home_page_does() -> None:
+def test_the_readme_points_to_the_site_and_installs_as_the_install_guide_does() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    home = text_of("index.md")
+    install = text_of("install.md")
     assert f"]({SITE})" in readme
     for line in INSTALL:
         assert f"\n{line}\n" in readme, line
-        assert f"\n{line}\n" in home, line
+        assert f"\n{line}\n" in install, line
     assert "a plugin for Claude Code that works closely with" in readme
-    assert "works closely with agterm" in home
     assert (
         "For a developer who works alone, and for a team on Linear or GitHub Issues."
         in readme
     )
     assert (
-        "For a developer who works alone, and for a team on Linear or GitHub Issues."
-        in home
+        " ".join(readme.split()).count(
+            "Lem merges a safe green change. You merge the others."
+        )
+        == 1
     )
     assert readme.rstrip().endswith("Lem has the [MIT License](LICENSE).")
     for link in re.findall(rf"\]\({re.escape(SITE)}([^)]*)\)", readme):

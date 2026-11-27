@@ -1,32 +1,14 @@
 # How a task goes
 
-```mermaid
-flowchart TD
-    req(["/lem and a request, in any session"]) --> track{"Type and track"}
-    track -- "fast track" --> one["One builder"]
-    track -- "a bug, or a question" --> inv["An investigator"]
-    track -- "standard track" --> crit["Interview if needed, then criteria"]
-    inv -- "one rule fixes it" --> one
-    inv -- "no bug, or an answer" --> stop(["An answer, nothing to merge"])
-    inv -- "a larger fix" --> crit
-    crit -- "approval if needed, then a fresh agent" --> plan["Plan, build, polish"]
-    plan -- "the breaker" --> brk(["Stopped: you help, park or drop"])
-    plan -- "a fresh agent" --> checks["Checks and a review"]
-    one --> checks
-    checks --> pr["Pull request: green or not green"]
-    pr --> merger{"The merge agent reads it"}
-    merger -- "green, not careful" --> allowed{"Can Lem merge?"}
-    allowed -- "settings permit, verdict is merge" --> merged(["Merged"])
-    allowed -- "owner setting or call verdict" --> you(["You merge"])
-    merger -- "not green or careful" --> you
-```
+The chart of the [Overview](index.md#how-a-task-goes) shows the whole path. This page tells each
+step.
 
-## One session for each task
+## One session at a time
 
-`/lem` and a request opens the task in an agterm session of its own, which carries it to its
-merge. On the standard track, a fresh agent takes over at each change of phase: the shape with
-you, the build, the landing. Say "hand off" for a fresh agent at any time. The fast track is one
-session. Inside a phase, Claude Code compacts the session at 600,000 tokens of context, or at the
+`/lem` and a request opens the task in an agterm session of its own. A task has one session at a
+time. On the standard track, Lem opens a new session for each phase: the shape with you, the
+build, the landing. The fast track is one session to its merge. Say "hand off" for a fresh session
+at any time. Inside a phase, Claude Code compacts the session at 600,000 tokens of context, or at the
 number of [`handoff.tokens`](settings.md#configlemmachinetoml).
 
 ## The first line
@@ -50,8 +32,8 @@ When the request does not fit, the builder stops, and the standard track starts.
 
 ## The standard track
 
-1. **Interview, if needed.** You answer one question at a time, each with its guess. The plan uses
-   a library or an approach that you name.
+1. **Interview, if needed.** You answer one question at a time, each with its guess. If you name a
+   library or an approach, the plan uses it.
 2. **Acceptance criteria.** Each is a rule in plain words with one real example, and gets a test.
 3. **The personas read them**, as each person that the change affects.
 4. **Your yes, if needed.** If you are present, an interview, a disputed criterion or a request
@@ -59,8 +41,8 @@ When the request does not fit, the builder stops, and the standard track starts.
    personas agree. A task that runs [without you](away.md) goes on without your yes.
 5. **The plan.** A short plan goes to `docs/plans/`, and a new builder makes each part. The
    [ladder](when-lem-needs-you.md#a-decision-in-doubt) decides each choice, and asks you nothing.
-6. **The polish pass.** A new builder removes leftovers and fixes a cheap defect outside the task:
-   text that does not run. It files each other defect in `docs/backlog/`
+6. **The polish pass.** A new builder removes leftovers. Outside the task, it fixes a wrong
+   comment, docstring or sentence of a document. It files each other defect in `docs/backlog/`
    ([what Lem saw outside the task](pull-request.md#what-lem-saw-outside-the-task)).
 
 A ticket or a backlog item that already says what you want skips the interview. Say "interview
@@ -87,17 +69,12 @@ change, and you merge it.
 
 The checks run your test commands. The test of each criterion must pass on the branch and fail
 on the old code. The review is as large as the change: one read on the fast track, more reviewers
-for a larger change. A builder fixes each must-fix, in two rounds at most. Then Lem opens
+for a larger change. A reviewer marks each finding as a must-fix, a should (worth a fix) or a nit
+(a small point). A builder fixes each must-fix, in two rounds at most. Then Lem opens
 [the pull request](pull-request.md).
 
 ## Many tasks at once
 
 Many tasks build and land at the same time, and Lem merges one at a time. The checks start only
-while the load of your computer is below 40. To set a different limit, run
-`lem settings set load.start N --machine`. When many tasks wait for the checks, the task that
-waits longest starts first, for all the repositories on your computer. A task that another task
-waits for starts before it.
-
-A request waits for a task whose result it needs, or that you put before it, until that task
-merges or gets its answer. When that task is dropped, the request
-[waits for you](when-lem-needs-you.md#what-waits-for-you).
+while the load of your computer is below [`load.start`](settings.md#configlemmachinetoml), 40 by
+default.

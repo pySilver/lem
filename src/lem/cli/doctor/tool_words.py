@@ -58,16 +58,18 @@ AGTERM = Tool(
     without_it="`/lem` stops at once: Lem runs inside agterm only",
     program="agtermctl",
 )
+# Required: a task lands only through a GitHub pull request, which `gh` opens and merges (the
+# owner's ruling "GitHub pull requests are the one way to land").
 GH = Tool(
     name="gh",
-    need=OPTIONAL,
+    need=REQUIRED,
     used_for=(
-        "the pull request of each task and the board's look at the open ones, where the "
-        "remote is GitHub"
+        "the pull request of each task, the board's look at the open ones, and the issues "
+        "of a GitHub tracker"
     ),
     without_it=(
-        "with a GitHub remote `lem land propose` and the board's look at GitHub stop and "
-        "say so; install the GitHub CLI and run `gh auth login`"
+        "no task lands: `lem land propose` and the board's look at GitHub stop and say so; "
+        "install the GitHub CLI and run `gh auth login`"
     ),
     program="gh",
 )

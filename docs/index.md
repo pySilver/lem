@@ -1,37 +1,18 @@
 ---
-title: Lem
+title: Overview
 description: Type a request in plain words, and get a pull request whose first line says green or not green.
 ---
 
-# Lem
+# Overview
 
-**Type a request in plain words, and get a pull request whose first line says green or not green.**
-
-For a developer who works alone, and for a team on Linear or GitHub Issues.
-
-Agents plan, build, test and review the change in your repository. Lem is a plugin for Claude Code
-that works closely with agterm.
-
-```bash
-brew install pySilver/tap/lem
-claude plugin marketplace add pySilver/lem --scope project
-claude plugin install lem@lem --scope project
-```
-
-Lem needs [agterm](https://agterm.com). Run the first line one time on your computer, and the
-next two in your repository. Then type `/lem init`. [Install](install.md) tells you more.
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/screens/board-dark.png">
-  <img src="assets/screens/board-light.png" alt="The board of all tasks: a sidebar with the tasks that wait for you, and four columns of task cards" width="1440" height="900">
-</picture>
-
-*The board on a computer. The picture shows demo data.*
+Lem makes each request a task, with its own agterm session and its own worktree. Agents plan,
+build, test and review the change, and the task ends as a pull request that says green or not
+green. Lem needs [agterm](https://agterm.com) and the tools of [Install](install.md), and your
+repository must be on GitHub.
 
 ## How a task goes
 
-Each request opens a task in an agterm session of its own, with its own worktree. Many tasks
-build and land at the same time. A task takes one of two tracks:
+Many tasks build and land at the same time. A task takes one of two tracks:
 
 - The **fast track** is for one plain change with no open question: a typo, a rename, the fix of
   one rule. One builder makes it, and nothing waits for you. When another person wrote the
@@ -49,17 +30,15 @@ flowchart TD
   checks --> pr["Pull request: green or not green"]
   build --> pr
   pr --> merger{"The merge agent reads it"}
-  merger -->|"green, not careful"| allowed{"Can Lem merge?"}
-  allowed -->|"settings permit, verdict is merge"| merged["Merged"]
-  allowed -->|"owner setting or call verdict"| you["You merge"]
-  merger -->|"not green or careful"| you
+  merger -->|"a safe change"| merged["Merged"]
+  merger -->|"every other change"| you["You merge"]
 ```
 
-A task needs you three times at most: for its interview and criteria, at a circuit breaker, and
-for a pull request with a call. The build asks you nothing.
+A task usually needs you at three points: its interview and criteria, a circuit breaker, and a
+merge that the merge agent calls you for. The build asks you nothing.
+[When Lem needs you](when-lem-needs-you.md) gives the other times.
 
-Two examples. They are illustrations, not the output of a run. The first uses
-`branch.land = "agent"`.
+Two examples. They are illustrations, not the output of a run.
 
 ```text
 you  /lem the footer says Terms, not Terms and Conditions
@@ -93,43 +72,24 @@ you  yes
 The first line of each pull request says green or not green. [The pull request](pull-request.md)
 lists the reasons for "not green". Green usually lets you merge without your own read.
 A careful change or a call from the merge agent still needs your read.
+Lem merges a safe green change, and you merge the others.
+[The merge](merge.md#the-merge-review) tells which change is safe.
 
-## The board, also on your phone
-
-The board shows each task in a column by who acts next, what waits for you, the backlog and the
-activity. It updates by itself. There you answer the questions of a task, approve criteria, park
-or drop a task, and merge.
+## The board, tickets and files
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/screens/phone-dark.png">
-  <img src="assets/screens/phone-light.png" alt="The board on a phone: the column Waits for you, with three tasks" width="390" height="844">
+  <source media="(prefers-color-scheme: dark)" srcset="assets/screens/board-dark.png">
+  <img src="assets/screens/board-light.png" alt="The board of all tasks: a sidebar with the tasks that wait for you, and four columns of task cards" width="1440" height="900">
 </picture>
 
-*The board on a phone. The picture shows demo data.*
+*The board on a computer. The picture shows demo data.*
 
-Add the board to the Home Screen of your phone, through [Tailscale](https://tailscale.com). Lem then
-sends a notification each time something starts to wait for you.
-[The board on your phone](phone.md) gives the steps.
-
-## Start from a ticket
-
-Connect [Linear](linear.md) or [GitHub Issues](github-issues.md). Then a ticket is the request of a
-task: type `/lem new ABC-12` for Linear, or `/lem new 42` for GitHub Issues. A team shares the
-settings in git, the tickets and the pull requests. Each developer has their own board, with the
-tasks on their own computer.
-
-## Lem learns your repository
-
-Lem keeps what it learns in files of your repository's git:
-
-- `.lem/profile.md`: the product;
-- `.lem/personas/`: the people that a change affects;
-- `.lem/lessons.md`: your corrections of how an agent does a step here;
-- `docs/rulings.md`: your decisions about what the product does, which no agent reopens without
-  asking you.
-
-Codex is optional and highly recommended. With it, a second model family reviews the larger
-changes and answers as a second expert.
+- [The board](board.md) shows each task in a column by who acts next, also
+  [on your phone](phone.md).
+- A ticket of Linear or GitHub Issues can be the request of a task:
+  [Start from a ticket](tickets.md).
+- Lem keeps what it learns about your repository in files of its git:
+  [the files of Lem](settings.md#other-files-of-lem).
 
 ## What you type
 
@@ -138,7 +98,7 @@ changes and answers as a second expert.
 | `/lem <request>`, in any session | Lem opens a task in a session of its own, and the task tells you its type and track |
 | `/lem` | the list of what waits for you, and the board |
 | `/lem status <task>` | the board of one task |
-| a chord in agterm (`ctrl+cmd+t`) | pick a task: you go to its session, or its board opens when no session runs it |
+| a chord in agterm (`ctrl+cmd+t`), after you add the keymap line that `lem doctor` gives | pick a task: you go to its session, or its board opens when no session runs it |
 | `/lem plan <request>` | a standard-track task that stops after its plan. `/lem build` builds it |
 | `/lem land <task>` | you merge an open pull request yourself |
 | `/lem park [task]`, `/lem resume [task]` | you put a stopped task aside, or go back to it |
@@ -156,6 +116,6 @@ skill. "Let's brainstorm this" starts `interview-me`. "Argue both sides" starts 
 | `/lem ask-expert` | you want expert models to answer a question |
 | `/lem panel docs/backlog/export-drops-custom-columns.md` | you want the personas to read a text |
 
-Lem needs your yes at setup to schedule `/lem retro` or `/lem night`.
+Lem needs your yes at setup to schedule [`/lem retro` or `/lem night`](away.md#the-night-and-the-retro).
 
 Lem has the [MIT License](https://github.com/pySilver/lem/blob/main/LICENSE).

@@ -112,7 +112,8 @@ def test_the_page_says_where_each_table_is_valid_as_the_places_do() -> None:
 def test_only_the_import_guides_name_project_toml() -> None:
     root = PAGE.parents[1]
     texts = [*root.glob("skills/**/*.md"), *root.glob("docs/*.md"), root / "README.md"]
-    import_guides = {PAGE, root / "skills/lem/stages/init.md"}
+    # The docs tell no history: only the stage that takes a file of Lem 0.3 names it.
+    import_guides = {root / "skills/lem/stages/init.md"}
     named = [
         path
         for path in texts

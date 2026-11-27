@@ -239,7 +239,7 @@ doctor:codex	kept	unit.settings.doctor.test_tools.test_with_no_codex_its_row_is_
 doctor:codex persona agent	kept	unit.settings.doctor.test_tools.test_codex_gets_a_row_for_the_persona_agent_whose_absence_fails_nothing	
 doctor:correction hook	kept	unit.settings.doctor.test_hooks.test_a_settings_file_that_also_holds_the_hook_beside_lems_plugin_is_named	
 doctor:cronn	kept	unit.settings.doctor.test_tools.test_an_installed_cronn_that_does_not_answer_is_not_running	
-doctor:gh	kept	unit.settings.doctor.test_tools.test_gh_is_optional_found_not_signed_in_or_signed_in	
+doctor:gh	changed	unit.settings.doctor.test_tools.test_gh_is_required_found_not_signed_in_or_signed_in	required, not optional: a task lands only through a GitHub pull request (the owner's ruling "GitHub pull requests are the one way to land")
 doctor:git	kept	unit.settings.doctor.test_tools.test_a_program_on_path_is_found_with_the_version_it_prints	
 doctor:handoff tokens	changed	unit.settings.doctor.test_machine.test_the_handoff_tokens_are_the_default_a_number_set_here_or_claude_codes_own	the line is lem settings set handoff.tokens N --machine (surfaces.md A); the value comes from the settings in force with its source
 doctor:hook modules	changed	unit.settings.doctor.test_hooks.test_the_plugin_and_the_app_of_this_repository_are_whole	the app's side is the package lem.hooks (main.py, each selector's module and what they import at their top); an import of Lem outside lem.hooks at a hook module's top fails the row, since lem-hook imports the standard library only (part 5)
@@ -294,7 +294,7 @@ check:tests/lem-machine.sh:lem-installed-as-a-plugin-for-the-user-or-fo-54f09b5d
 check:tests/lem-machine.sh:lem-s-plugin-installed-for-the-user-gets-a-r-27993239a131b0d6	kept	unit.settings.doctor.test_project.test_lems_plugin_for_the_user_gets_a_row_with_the_two_commands_and_for_a_project_none	
 check:tests/lem-machine.sh:the-check-has-no-row-for-the-question-page-w-11c5cf079595f115	kept	unit.settings.doctor.test_machine.test_the_jev_key_row_names_the_one_variable_and_its_provider_and_no_key	no row for the question page: test_without_git_the_check_exits_1_with_its_rows_and_the_refusal_that_names_git
 check:tests/lem-machine.sh:the-machine-check-has-a-required-row-of-the-e59402864e60b9cf	kept	unit.settings.doctor.test_hooks.test_the_plugin_and_the_app_of_this_repository_are_whole	
-check:tests/lem-machine.sh:the-machine-check-has-a-row-for-gh-not-found-f1c17f98f9835a82	kept	unit.settings.doctor.test_tools.test_gh_is_optional_found_not_signed_in_or_signed_in	
+check:tests/lem-machine.sh:the-machine-check-has-a-row-for-gh-not-found-f1c17f98f9835a82	kept	unit.settings.doctor.test_tools.test_gh_is_required_found_not_signed_in_or_signed_in	
 check:tests/lem-machine.sh:the-machine-check-says-that-lem-assumes-auto-6ed0644b41f77379	kept	unit.settings.doctor.test_project.test_auto_and_bypass_count_from_the_users_settings_only	the nearest file and the one line: test_lem_assumes_auto_mode_and_a_mode_counts_from_the_nearest_file
 check:tests/lem-machine.sh:the-review-tool-alone-is-not-enough-its-skil-786e31b38dc88edc	kept	unit.settings.doctor.test_tools.test_the_review_tool_alone_is_not_enough_and_no_agterm_skill_row_without_agterm	
 check:tests/lem-machine.sh:the-skills-are-found-in-a-skills-folder-or-i-04c755919728f801	kept	unit.settings.doctor.test_tools.test_a_skill_counts_in_a_plugin_of_its_name_or_carried_by_a_plugin_of_another	without Claude Code the check fails: test_without_claude_code_the_check_fails_and_there_is_no_builder_row
