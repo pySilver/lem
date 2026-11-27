@@ -761,8 +761,6 @@ def test_merge_polls_replace_the_tip_then_send_the_refusal_as_a_note() -> None:
 def test_poll_resumes_after_the_workspace_list_reads(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import anyio
-
     from lem.addons.inbox import schedule
     from lem.board import workspaces
     from lem.store.places import Workspace
@@ -783,22 +781,14 @@ def test_poll_resumes_after_the_workspace_list_reads(
         visited.append(where)
         return Record()
 
-    async def run() -> None:
-        stopped = anyio.Event()
+    def report(name: str, why: str | None) -> None:
+        reports.append((name, why))
+        if why:
+            path.write_text('["/scratch/shop"]')
 
-        def report(name: str, why: str | None) -> None:
-            reports.append((name, why))
-            if why:
-                path.write_text('["/scratch/shop"]')
-            elif name == "shop":
-                anyio.from_thread.run_sync(stopped.set)
-
-        with anyio.fail_after(3):
-            await schedule.run(targets, report, stopped)
-
-    monkeypatch.setattr(schedule, "INTERVAL", 0)
     monkeypatch.setattr(schedule.workspace, "tick", tick)
-    anyio.run(run)
+    schedule.cycle(targets, report)
+    schedule.cycle(targets, report)
     assert visited == [project]
     assert reports[0][0] == "*" and "no list of workspaces" in (reports[0][1] or "")
     assert reports[1:] == [("*", None), ("shop", None)]

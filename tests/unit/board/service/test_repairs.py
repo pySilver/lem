@@ -113,7 +113,9 @@ def test_a_port_move_respects_the_other_install_and_checks_the_destination(
     home = tmp_path / "config" / "lem"
     environ = {"HOME": str(tmp_path), "XDG_CONFIG_HOME": str(home.parent)}
     mine = msgspec.structs.replace(install.install_of(), version="2.0.0")
-    theirs = msgspec.structs.replace(mine, version=version, package="/other/lem")
+    other = tmp_path / "other" / "lem"
+    other.mkdir(parents=True)
+    theirs = msgspec.structs.replace(mine, version=version, package=str(other))
     old = msgspec.structs.replace(stored(home, OLD), install=theirs)
     serve_file.write(home, old)
     (home / machine.MACHINE).write_text(f"[serve]\nport = {NEXT}\n")

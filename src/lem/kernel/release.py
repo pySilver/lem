@@ -24,8 +24,13 @@ class Manifest(msgspec.Struct, kw_only=True):
 
 @functools.cache
 def running() -> str:
-    """This Lem's release: the version of its own plugin files' manifest."""
-    path = paths.root() / MANIFEST
+    """This Lem's release: the version of its own plugin files' manifest, read once."""
+    return named(paths.root())
+
+
+def named(root: Path) -> str:
+    """The release the manifest of the plugin's files in `root` names now."""
+    path = root / MANIFEST
     try:
         return msgspec.json.decode(path.read_bytes(), type=Manifest).version
     except (OSError, msgspec.DecodeError) as error:

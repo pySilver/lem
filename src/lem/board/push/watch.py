@@ -12,11 +12,11 @@ import sys
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-import anyio
 import msgspec
 
 from lem.adapters import notify_push_devices as devices
 from lem.board.push import said, waits
+from lem.board.turns import Turn
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 # How often the watcher looks, in seconds. A guess: a phone needs no fresher news
 # (`push.LOOK_SECONDS` on `main`).
 LOOK = 5.0
+NAME = "the watcher of the notifications"
 
 
 @dataclass
@@ -62,16 +63,16 @@ class Watcher:
             sys.stderr.write(f"the board's notifications: {problem}\n")
         self.problem = problem
 
-    async def loop(self, stopping: anyio.Event) -> None:
-        """Look every LOOK seconds, off the event loop, until the server stops."""
-        while not stopping.is_set():
-            with anyio.move_on_after(LOOK):
-                await stopping.wait()
-            if stopping.is_set():
-                return
-            try:
-                await anyio.to_thread.run_sync(self.look, self.notifier.now())
-            except waits.FAILED as error:
-                self.told(f"{type(error).__name__}: {error}")
-            else:
-                self.told(None)
+    def turned(self) -> None:
+        """One look, whose expected failures are its problem; any other failure is the
+        loop's (`board/turns.py`)."""
+        try:
+            self.look(self.notifier.now())
+        except waits.FAILED as error:
+            self.told(f"{type(error).__name__}: {error}")
+        else:
+            self.told(None)
+
+    def turn(self) -> Turn:
+        """The watcher as a loop of the server's life: a look every LOOK seconds."""
+        return Turn(name=NAME, every=LOOK, step=self.turned)

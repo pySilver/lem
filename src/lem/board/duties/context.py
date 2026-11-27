@@ -42,7 +42,12 @@ class Duty:
 
     def say(self, line: str) -> None:
         """One line in the server's log, with the workspace's name."""
-        sys.stderr.write(f"lem serve: {self.name}: {line}\n")
+        said(self.name, line)
+
+
+def said(name: str, line: str) -> None:
+    """One line in the server's log, with the name of its workspace `name`."""
+    sys.stderr.write(f"lem serve: {name}: {line}\n")
 
 
 def bound(space: Workspace, environ: Mapping[str, str], home: Path) -> Here:

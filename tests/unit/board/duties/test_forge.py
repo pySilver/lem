@@ -183,7 +183,11 @@ def test_a_duty_refusal_keeps_its_repair_in_the_returned_failure(
 
     monkeypatch.setattr(duty, "tick", refused)
     failed = seams.failure(duty.__name__, duty_of(here_of(tmp_path), HOUR))
-    assert failed == "Refusal: the forge refused access. the owner runs gh auth login"
+    assert failed is not None
+    assert (
+        failed.said == "Refusal: the forge refused access. the owner runs gh auth login"
+    )
+    assert failed.refused
 
 
 def test_a_pull_request_merged_or_closed_on_github_gets_its_bookkeeping_once(

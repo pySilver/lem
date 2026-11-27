@@ -4,9 +4,10 @@
 
 A server of the same install stays while its code and settings are those of the files now; one
 of another install stays unless this one's release is higher, and one of the release before
-this one always stays, with every file of the home folder. `LEM_SERVE=off` starts nothing, ends
-nothing and writes nothing. Run in a workspace, it puts that workspace on the list of this
-build's server.
+this one always stays, with every file of the home folder. One whose install an update
+replaced (its package folder gone, or Homebrew's `opt/lem` on another keg) is replaced whatever
+its release. `LEM_SERVE=off` starts nothing, ends nothing and writes nothing. Run in a
+workspace, it puts that workspace on the list of this build's server.
 """
 
 import os

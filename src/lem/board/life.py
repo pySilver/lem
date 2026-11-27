@@ -1,5 +1,7 @@
 """The life of the board server: its facts in `serve.json` while it runs, and beside it its
-duties and the watcher of the board's notifications."""
+loops (`turns.py`), none of whose failures ends it: the duties, the watcher of the board's
+notifications, the look at its own install (`handover.py`), and the Inbox's when it is on.
+"""
 
 from contextlib import asynccontextmanager
 from functools import partial
@@ -8,7 +10,7 @@ from typing import TYPE_CHECKING
 import anyio
 
 from lem.board import facts as server_facts
-from lem.board import serve_file, update
+from lem.board import handover, serve_file, turns, update
 from lem.board.duties import runner
 
 if TYPE_CHECKING:
@@ -26,22 +28,30 @@ async def lived(
     app: Starlette, *, facts: server_facts.Facts, home: Path, watcher: Watcher
 ) -> AsyncIterator[None]:
     """The server's life: its facts in `serve.json` and its release in the update record,
-    its duties and the watcher of the board's notifications while it runs; at the stop each
-    ends, and the file goes."""
+    its loops while it runs; at the stop each ends, and the file goes."""
     recorded(home, facts)
     stopping = anyio.Event()
     async with anyio.create_task_group() as group:
-        group.start_soon(runner.loop, home, stopping)
-        group.start_soon(watcher.loop, stopping)
-        inbox = getattr(app.state, "inbox_duty", None)
-        if inbox is not None:
-            group.start_soon(inbox, stopping)
+        for turn in turns_of(app, home, watcher):
+            group.start_soon(turns.kept_up, turn, stopping)
         try:
             yield
         finally:
             stopping.set()
             await stopped(app)
     serve_file.remove(home, facts.pid)
+
+
+def turns_of(app: Starlette, home: Path, watcher: Watcher) -> list[turns.Turn]:
+    """The loops of the server's life; the look at its install is the app's, whose answer
+    says why it was replaced."""
+    looks = handover.watching(home)
+    app.state.handover = looks
+    found = [runner.turn(home), watcher.turn(), handover.turn(looks)]
+    inbox = getattr(app.state, "inbox_turn", None)
+    if inbox is not None:
+        found.append(inbox)
+    return found
 
 
 def recorded(home: Path, facts: server_facts.Facts) -> None:

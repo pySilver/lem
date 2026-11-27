@@ -37,6 +37,7 @@ from lem.adapters.git_cli import GitCli
 from lem.app import wiring
 from lem.app.landing import changes, frame, merge, merged
 from lem.app.sessions import acts, log
+from lem.board import turns
 from lem.board.duties import merge_line, runner
 from lem.board.duties.memory import MEMORY
 from lem.kernel import clock
@@ -195,7 +196,7 @@ def test_the_duties_run_every_twenty_seconds_off_the_event_loop_until_the_server
 
     monkeypatch.setattr(runner, "tick", ticked)
     monkeypatch.setattr(runner, "TICK", 0.01)
-    anyio.run(runner.loop, own_home, stopping)
+    anyio.run(turns.kept_up, runner.turn(own_home), stopping)
     assert ticks == [own_home, own_home]
 
 
