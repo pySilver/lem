@@ -51,11 +51,17 @@ def index(rows: Rows, host: str, *, problem: str | None = None) -> switcher.Work
     )
 
 
-def menu(rows: Rows, current: str, host: str) -> switcher.Switcher | None:
-    """The switcher when the machine has another workspace."""
+def menu(
+    rows: Rows, current: str, host: str, *, joined: bool = False
+) -> switcher.Switcher | None:
+    """The switcher when the board has another workspace or machine."""
+    joined = joined or any(row.host != host for row in rows)
     if len(rows) <= 1:
-        return None
-    joined = any(row.host != host for row in rows)
+        return (
+            switcher.Switcher(name=current, host=host, title=f"{host}/{current}")
+            if joined
+            else None
+        )
     spaces = tuple(
         switcher.Space(
             id=row.url or row.host,
@@ -74,6 +80,7 @@ def menu(rows: Rows, current: str, host: str) -> switcher.Switcher | None:
     group = switcher.Group(head="Workspaces", spaces=spaces)
     return switcher.Switcher(
         name=current,
+        host=host if joined else None,
         title="Workspaces",
         groups=(group,),
         waiting=waiting,

@@ -1,6 +1,6 @@
 """`lem serve join`: show the boards of another machine of the tailnet.
 
-lem serve join HOST
+lem serve join HOST[:PORT]
 """
 
 import click
@@ -23,8 +23,12 @@ def run(call: Call) -> commands.Answer:
 COMMAND = click.Command(
     "join",
     params=[
-        click.Argument(["host"]),
+        click.Argument(["host"], metavar="HOST[:PORT]"),
     ],
     callback=lambda **given: run(msgspec.convert(given, Call)),
-    help="Show the boards of another machine of the tailnet.",
+    help=(
+        "Show the boards of another machine of the tailnet. "
+        "Add :PORT if the other machine's door uses a different port. "
+        "With HOST alone, Lem uses its own door port (4537 by default)."
+    ),
 )

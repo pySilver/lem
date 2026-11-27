@@ -50,7 +50,7 @@ def frame(world: World, beside: Beside) -> Frame:
     title, line = summary.said(world.viewer.view, counts)
     return Frame(
         viewer=world.viewer,
-        head=bars.head(world, title, counts),
+        head=bars.head(world, title, counts, joined=switcher.host is not None),
         phonebar=bars.phonebar(world, counts),
         sidebar=sidebar.sidebar(
             world, counts, beside.backlog, switcher, beside.problems

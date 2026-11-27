@@ -1,5 +1,5 @@
 {% macro space_name(name, host) -%}
-{% if host %}<span class="ws-host">{{ host }}</span>{% endif %}<b>{{ name }}</b>
+<span class="ws-label">{% if host %}<span class="ws-host">{{ host }}</span>{% endif %}<b class="ws-name">{{ name }}</b></span>
 {%- endmacro %}
 {% if switch.groups %}
 <details class="ws" data-menu id="ws-switcher">
