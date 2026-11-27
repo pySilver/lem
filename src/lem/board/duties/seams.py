@@ -1,29 +1,112 @@
-"""Where one duty's failure stops: any failure of a duty gives its kind and
-words, which the runner shows on the workspace's board or writes to the server's log, and the
-other duties and workspaces still run (the seams of `serve.forge_loop` on `main`)."""
+"""Where one failure stops: any failure of a duty gives its kind and words, which the runner
+shows on the workspace's board or writes to the server's log, and the other duties and
+workspaces still run (the seams of `serve.forge_loop` on `main`); a failure of a loop of the
+server's life ends that loop's turn, never the server.
+
+A refusal is a step that may not run now, and its words say all. Any other failure is a fault
+of Lem, whose traceback goes to the server's log once while its words stay the same: an import
+of a module whose file an update removed fails here too, and is a fault. A loop starts again
+after its failure; each loop waits before its first step, so its next try is one period later.
+"""
 
 import importlib
 import logging
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from lem.board.duties import context
 from lem.kernel.errors import Refusal
 
 if TYPE_CHECKING:
-    from lem.board.duties.context import Duty
+    from collections.abc import Awaitable, Callable
+
+    import anyio
+
+    from lem.board.duties.memory import Kept
+
+type Loop = Callable[[anyio.Event], Awaitable[None]]
 
 LOGGER = logging.getLogger(__name__)
 
 
-def failure(path: str, duty: Duty) -> str | None:
+@dataclass(frozen=True, slots=True)
+class Failure:
+    """A failed step of a duty: its words for the board and the log, and its exception."""
+
+    said: str
+    error: Exception
+
+    @property
+    def refused(self) -> bool:
+        """Whether the step was refused, which has no traceback to keep."""
+        return isinstance(self.error, Refusal)
+
+
+def failure(path: str, duty: context.Duty) -> Failure | None:
     """Run the duty of `path`; why it failed, or None."""
+    done = attempt(lambda: importlib.import_module(path).tick(duty))
+    return done if isinstance(done, Failure) else None
+
+
+def attempt[Made](step: Callable[[], Made]) -> Made | Failure:
+    """What `step` gives, or why it failed."""
     try:
-        importlib.import_module(path).tick(duty)
+        return step()
     except Exception as error:
-        LOGGER.debug("A board duty failed", exc_info=True)
-        kind = type(error).__name__
-        why = str(error)
-        if isinstance(error, Refusal):
-            why = f"{why}. {error.fix}"
-        said = " ".join(why.split())
-        return f"{kind}: {said}"
-    return None
+        LOGGER.debug("A step of the board's duties failed", exc_info=True)
+        return Failure(said=said_of(error), error=error)
+
+
+def said_of(error: Exception) -> str:
+    """The failure's kind and words on one line, a refusal's fix after its why."""
+    why = str(error)
+    if isinstance(error, Refusal):
+        why = f"{why}. {error.fix}"
+    said = " ".join(why.split())
+    return f"{type(error).__name__}: {said}"
+
+
+def noted(
+    kept: Kept, space: str, name: str, problem: str | None, failed: Failure | None
+) -> None:
+    """Show the problem `name` on the board of the workspace `space` and in the server's log,
+    or forget it."""
+    traced(kept, space, name, failed)
+    if problem is None:
+        kept.problems.pop(name, None)
+        return
+    kept.problems[name] = problem
+    context.said(space, problem)
+
+
+def traced(kept: Kept, space: str, name: str, failed: Failure | None) -> None:
+    """The traceback of a fault of `name` in the server's log, once while its words stay the
+    same; a refusal has none."""
+    if failed is None or failed.refused:
+        kept.faults.pop(name, None)
+        return
+    if kept.faults.get(name) == failed.said:
+        return
+    kept.faults[name] = failed.said
+    LOGGER.error(
+        "lem serve: %s: the traceback of the fault of %s, tried again at the next tick",
+        space,
+        name,
+        exc_info=failed.error,
+    )
+
+
+async def kept_up(name: str, loop: Loop, stopping: anyio.Event) -> None:
+    """Run the loop `name` until the server stops, and again after each of its failures,
+    whose traceback goes to the server's log once while its words stay the same."""
+    last = None
+    while not stopping.is_set():
+        try:
+            await loop(stopping)
+        except Exception as error:
+            said = said_of(error)
+            if said != last:
+                LOGGER.exception(
+                    "lem serve: %s of the board server failed, and runs again", name
+                )
+            last = said

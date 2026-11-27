@@ -3,21 +3,25 @@ each duty of DUTIES in its order, one at a time, never on a request's path (`ser
 on `main`): the look at the forge first, the keeping of the state folder last.
 
 Each duty is a module of this folder with `tick(duty)`, found by its fixed path. One failure
-costs no other: a failed look at the forge is its board's problem, and the duties, the keeping
-and the next workspace still run; a failed duty is its board's problem, and the other duties,
-the keeping and the next workspace still run; a failed keeping is one line in the server's log.
-A workspace of example tasks (its state folder holds `demo`) owes nothing.
+costs no other: a workspace whose ports do not bind is its board's problem, and the next
+workspace still runs; a failed look at the forge is its board's problem, and the duties, the
+keeping and the next workspace still run; a failed duty is its board's problem, and the other
+duties, the keeping and the next workspace still run; a failed keeping is one line in the
+server's log. A failure that is no refusal is a fault of Lem: its traceback goes to the server's
+log too, once while its words stay the same, and each tick tries the step again. A failure of the
+tick itself ends no server: the server's life starts the loop again (`board/life.py`). A
+workspace of example tasks (its state folder holds `demo`) owes nothing.
 """
 
 import os
+from functools import partial
 from typing import TYPE_CHECKING
 
 import anyio
 
 from lem.board import machine, workspaces
-from lem.board.duties import context
+from lem.board.duties import context, seams
 from lem.board.duties.memory import MEMORY
-from lem.board.duties.seams import failure
 from lem.kernel import clock
 
 if TYPE_CHECKING:
@@ -44,6 +48,8 @@ LOOK = "forge"
 LOOK_FAILURE = "forge-duty"
 KEEP = "prune"
 DEMO = "demo"
+# The board's problem of a workspace whose ports do not bind, so that no duty of it runs.
+BIND = "duties"
 
 
 def tick(home: Path, now: datetime | None = None) -> None:
@@ -51,8 +57,14 @@ def tick(home: Path, now: datetime | None = None) -> None:
     the server's environment."""
     moment = now or clock.now()
     for name, space in spaces(home):
-        here = context.bound(space, os.environ, home)
         kept = MEMORY.of(space.checkout)
+        here = seams.attempt(partial(context.bound, space, os.environ, home))
+        if isinstance(here, seams.Failure):
+            seams.noted(
+                kept, name, BIND, f"the board's duties do not run: {here.said}", here
+            )
+            continue
+        seams.noted(kept, name, BIND, None, None)
         ticked(context.Duty(name=name, here=here, now=moment, kept=kept))
 
 
@@ -69,31 +81,24 @@ def spaces(home: Path, host: str | None = None) -> Iterator[tuple[str, Workspace
 def ticked(duty: context.Duty) -> None:
     """One workspace's tick: each duty, each failure kept apart."""
     for path in DUTIES:
-        failed = failure(path, duty)
+        failed = seams.failure(path, duty)
         short = path.rsplit(".", 1)[-1]
         if short != KEEP:
             name = LOOK_FAILURE if short == LOOK else short
-            noted(duty, name, worded(short, failed))
-        elif failed is not None:
-            duty.say(f"lem prune failed: {failed}")
+            seams.noted(duty.kept, duty.name, name, worded(short, failed), failed)
+            continue
+        seams.traced(duty.kept, duty.name, short, failed)
+        if failed is not None:
+            duty.say(f"lem prune failed: {failed.said}")
 
 
-def worded(short: str, failed: str | None) -> str | None:
+def worded(short: str, failed: seams.Failure | None) -> str | None:
     """The board's problem of a duty that failed, or None."""
     if failed is None:
         return None
     if short == LOOK:
-        return f"the board's look at GitHub failed: {failed}"
-    return f"the board's duty {short} failed: {failed}"
-
-
-def noted(duty: context.Duty, name: str, problem: str | None) -> None:
-    """Show the problem on the workspace's board and in the server's log, or forget it."""
-    if problem is None:
-        duty.kept.problems.pop(name, None)
-        return
-    duty.kept.problems[name] = problem
-    duty.say(problem)
+        return f"the board's look at GitHub failed: {failed.said}"
+    return f"the board's duty {short} failed: {failed.said}"
 
 
 async def loop(home: Path, stopping: anyio.Event) -> None:

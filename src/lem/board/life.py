@@ -1,5 +1,12 @@
 """The life of the board server: its facts in `serve.json` while it runs, and beside it its
-duties and the watcher of the board's notifications."""
+loops: the duties, the watcher of the board's notifications, the Inbox's when it is on, and the
+look at its own install (`handover.py`).
+
+A loop's failure never ends the server (`seams.kept_up`): one fault of a tick of the duties
+ended the whole server through its task group on 2026-11-27, after `brew upgrade` removed the
+files of the release that served. Its traceback goes to the server's log, and the loop starts
+again; each loop waits before its first step, so its next try is one period later.
+"""
 
 from contextlib import asynccontextmanager
 from functools import partial
@@ -8,8 +15,8 @@ from typing import TYPE_CHECKING
 import anyio
 
 from lem.board import facts as server_facts
-from lem.board import serve_file, update
-from lem.board.duties import runner
+from lem.board import handover, serve_file, update
+from lem.board.duties import runner, seams
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -26,22 +33,33 @@ async def lived(
     app: Starlette, *, facts: server_facts.Facts, home: Path, watcher: Watcher
 ) -> AsyncIterator[None]:
     """The server's life: its facts in `serve.json` and its release in the update record,
-    its duties and the watcher of the board's notifications while it runs; at the stop each
-    ends, and the file goes."""
+    its loops while it runs; at the stop each ends, and the file goes."""
     recorded(home, facts)
     stopping = anyio.Event()
     async with anyio.create_task_group() as group:
-        group.start_soon(runner.loop, home, stopping)
-        group.start_soon(watcher.loop, stopping)
-        inbox = getattr(app.state, "inbox_duty", None)
-        if inbox is not None:
-            group.start_soon(inbox, stopping)
+        for name, each in loops_of(app, home, watcher):
+            group.start_soon(seams.kept_up, name, each, stopping)
         try:
             yield
         finally:
             stopping.set()
             await stopped(app)
     serve_file.remove(home, facts.pid)
+
+
+def loops_of(
+    app: Starlette, home: Path, watcher: Watcher
+) -> list[tuple[str, seams.Loop]]:
+    """The loops of the server's life, each by its name in the server's log."""
+    loops: list[tuple[str, seams.Loop]] = [
+        ("the duties", partial(runner.loop, home)),
+        ("the watcher of the notifications", watcher.loop),
+        ("the look at its install", partial(handover.loop, handover.watching(home))),
+    ]
+    inbox = getattr(app.state, "inbox_duty", None)
+    if inbox is not None:
+        loops.append(("the look at the Inbox", inbox))
+    return loops
 
 
 def recorded(home: Path, facts: server_facts.Facts) -> None:

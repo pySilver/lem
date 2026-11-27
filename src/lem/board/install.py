@@ -26,13 +26,18 @@ def stamp(package: Path) -> int:
     return max(found, default=0)
 
 
+def commit_of(package: Path) -> str | None:
+    """The commit a build wrote into the package folder `package`, None for a checkout."""
+    try:
+        return (package / BUILD_COMMIT).read_text(encoding="utf-8").strip() or None
+    except FileNotFoundError:
+        return None
+
+
 def install_of(package: Path = paths.PACKAGE) -> Install:
     """The install whose package folder is `package`, read once by each process at its start,
     so that a server keeps the install it started from whatever an update writes later."""
-    try:
-        commit = (package / BUILD_COMMIT).read_text(encoding="utf-8").strip() or None
-    except FileNotFoundError:
-        commit = None
+    commit = commit_of(package)
     return Install(
         version=release.running(),
         commit=commit,

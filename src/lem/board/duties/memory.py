@@ -3,8 +3,9 @@ only: the files hold the truth, and a server that starts again starts with none 
 
 For each workspace: when it last looked at the forge and pruned, each bookkeeping of a pull
 request the forge ended that ran, each duty that failed with when (it waits RETRY before its next
-try), the merges this server runs, the line of each merge's end, and the problems its board
-shows (`serve.Workspace.forge`, `failed`, `pruned` and `session_problem` on `main`).
+try), the merges this server runs, the line of each merge's end, the problems its board
+shows (`serve.Workspace.forge`, `failed`, `pruned` and `session_problem` on `main`), and the
+words of each fault of a duty whose traceback the server's log holds.
 """
 
 import threading
@@ -39,6 +40,7 @@ class Kept:
     owner_tips: dict[str, str] = field(default_factory=dict)
     said: dict[str, str] = field(default_factory=dict)
     problems: dict[str, str] = field(default_factory=dict)
+    faults: dict[str, str] = field(default_factory=dict)
 
     merge_lock: threading.Lock = field(default_factory=threading.Lock)
 
