@@ -7,7 +7,7 @@ from lem.app.tasks import heads, ports, worktree
 from lem.app.tasks.where import named
 from lem.kernel.errors import Refusal
 from lem.model.task import claim
-from lem.settings.load import base_of, team_of
+from lem.settings.load import team_of
 from lem.store import workspace
 
 if TYPE_CHECKING:
@@ -24,10 +24,9 @@ def prepared(
     """Fetch outside the workspace lock and give the branch reservation to run inside it."""
     if made.task.branch is None:
         return None
-    team = team_of(where.checkout)
-    branch = named(made, None, team.branch)
-    source = worktree.start_of(start, base_of(team))
+    branch = named(made, None, team_of(where.checkout).branch)
     given = ports.bound(where)
+    source = worktree.start_of(given, where, made, start)
     source, said = heads.fetched(given, where.checkout, source)
     return partial(
         heads.fresh,

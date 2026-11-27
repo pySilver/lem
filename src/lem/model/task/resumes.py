@@ -130,4 +130,5 @@ def request_task(old: Task, new: str, start: str | None, now: Moment) -> Task:
         since=now,
         branch=None if start is None else f"{kind}/{new}",
         resumed_from=old.slug,
+        part_of=old.part_of,
     )

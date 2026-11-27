@@ -16,7 +16,7 @@ from lem.app.landing import (
     pull_identity,
     review_item,
 )
-from lem.app.tasks import where
+from lem.app.tasks import bases, where
 from lem.model.landing import destination
 from lem.model.landing import world as facts
 from lem.settings import load as settings_load
@@ -47,11 +47,10 @@ def rules(workspace: Workspace) -> facts.Rules:
 def origin(
     ports: Ports, workspace: Workspace, record: Record, now: Moment
 ) -> facts.World:
-    """The world of origin's base, before the worktree and the branches are read."""
-    found = rules(workspace)
-    base_ref = destination.recorded(record.landing) or found.base
-    found = replace(found, base=base_ref)
+    """The world of origin's base, before the worktree and the branches are read: the base
+    the landing recorded, else a part's feature branch, else the settings' (`bases.chosen`)."""
     git = ports.git
+    found = replace(rules(workspace), base=bases.chosen(git, workspace, record))
     base = git.remote_head(workspace.checkout, found.base)
     if base is None:
         raise destination.missing(found.base)

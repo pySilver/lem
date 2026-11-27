@@ -1,9 +1,10 @@
 """`lem task open`: open a task: its record and its folder.
 
-    lem task open SLUG --ask WORDS [--ticket ID] [--branch B] ...
+    lem task open SLUG --ask WORDS [--ticket ID] [--branch B] [--part-of NAME] ...
 
 The task opens `shaping`, or `queued` behind each `--after`; a ticket, a backlog item and the
-dropped task `--from` names are claimed under the workspace lock (`app/tasks/open.py`).
+dropped task `--from` names are claimed under the workspace lock, and a part joins the feature
+`--part-of` names there (`app/tasks/open.py`).
 """
 
 import click
@@ -27,6 +28,7 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     plan_only: bool = False
     backlog_item: str | None = None
     origin: str | None = None
+    part_of: str | None = None
 
 
 def run(call: Call) -> opening.Opened:
@@ -69,6 +71,14 @@ COMMAND = click.Command(
         ),
         click.Option(
             ["--from", "origin"], help="the dropped task this one starts again from"
+        ),
+        click.Option(
+            ["--part-of"],
+            help=(
+                "the feature this task is a part of: a queued task with its branch on "
+                "origin, which then waits for this part too; the owner gives no --ticket "
+                "with it"
+            ),
         ),
     ],
     callback=lambda **given: run(msgspec.convert(given, Call)),

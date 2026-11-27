@@ -1,5 +1,5 @@
 """Where a task's files are: its folder in the state, its worktree under `.lem/worktrees/`,
-and the branch it works on.
+and the branch it works on; `bases.py` gives the base it starts from and lands on.
 
 The worktrees' folder holds a `.gitignore` of `*`, so the main checkout's `git status` never
 shows a task's worktree (`project.cmd_worktree_dir` on `main`).

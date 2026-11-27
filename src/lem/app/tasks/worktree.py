@@ -1,6 +1,6 @@
 """`lem task worktree`: the task's worktree under `.lem/worktrees/`, on its branch, cut from
 origin's base after a fetch (or from the branch a resume goes on from), with `checks.setup` run
-once in it; or its path alone.
+once in it; or its path alone. A part's base is its feature's branch (`bases.py`).
 
 A worktree that is there already is taken as it is, so a run cut off after git made it makes no
 second one. A branch that is the base or a protected one is refused, and so is a new branch that
@@ -12,10 +12,10 @@ from typing import TYPE_CHECKING
 
 from msgspec.structs import replace
 
-from lem.app.tasks import heads, ports, release, where
+from lem.app.tasks import bases, heads, ports, release, where
 from lem.app.tasks.setup import Ran, set_up
 from lem.records.base import Frozen
-from lem.settings.load import base_of, team_of
+from lem.settings.load import team_of
 from lem.store import places, tasks
 
 if TYPE_CHECKING:
@@ -57,9 +57,7 @@ def made(
     fresh = not path.exists()
     said = None
     if fresh:
-        said = heads.cut(
-            given, workspace.checkout, path, (chosen, start_of(asked[1], base_of(team)))
-        )
+        said = cut(given, workspace, record, (path, chosen, asked[1]))
     else:
         heads.on_branch(path, chosen)
     tasks.update(
@@ -77,9 +75,26 @@ def made(
     )
 
 
-def start_of(start: str | None, base: str) -> str:
-    """Where a new branch is cut from: the start asked for, else origin's base."""
-    return start or f"origin/{base}"
+def cut(
+    given: Ports,
+    workspace: places.Workspace,
+    record: Record,
+    todo: tuple[Path, str, str | None],
+) -> str | None:
+    """Cut the worktree at its path on its branch, from its start (`start_of`)."""
+    path, branch, start = todo
+    source = start_of(given, workspace, record, start)
+    return heads.cut(given, workspace.checkout, path, (branch, source))
+
+
+def start_of(
+    given: Ports, workspace: places.Workspace, record: Record, start: str | None
+) -> str:
+    """Where a new branch is cut from: the start asked for, else origin's base of the task
+    (`bases.chosen`)."""
+    if start is not None:
+        return start
+    return f"origin/{bases.chosen(given.git, workspace, record)}"
 
 
 def prepared(

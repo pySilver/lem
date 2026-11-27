@@ -81,6 +81,11 @@
               "aliases": [],
               "value": true,
               "required": false
+            },
+            "--part-of": {
+              "aliases": [],
+              "value": true,
+              "required": false
             }
           },
           "positionals": [
