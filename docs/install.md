@@ -6,25 +6,31 @@ Lem lands each task through a pull request on GitHub, so the `origin` remote of 
 must be on GitHub. Lem assumes auto mode in Claude Code and Codex. A permission prompt stops an
 agent.
 
-`/lem init` gives the install steps. `lem doctor` checks the tools.
+Homebrew installs the programs. On a computer that has none of them, `lem doctor` gives these two
+lines. It names only the programs that are absent.
+
+```bash
+brew install git gh
+brew install --cask umputun/apps/revmux umputun/apps/agterm codex claude-code
+```
+
+The skills and hooks come from recipes. `/lem init` installs the required recipes that are absent
+when you type `install`.
 
 ### Required
 
 - [agterm](https://agterm.com) for task sessions and pages.
 - [agterm skill](https://agterm.com) from the agterm Help menu.
 - [Claude Code](https://code.claude.com/docs) for the agents.
-- [lem-builder agent](#install) from the Lem plugin for Claude Code.
 - [git](https://git-scm.com) for branches and worktrees.
 - [GitHub CLI](https://cli.github.com) for pull requests and issues. Install `gh` and sign in with
   `gh auth login`.
-- [Python 3.14](https://www.python.org/downloads/) comes with the Lem app.
 - [revmux](https://github.com/umputun/revmux) for review rounds.
-- [revmux skill](https://github.com/umputun/revmux) for agents that run reviews.
+- [revmux skill](https://github.com/umputun/revmux#agent-skills) for agents that run reviews.
 - [mailbox-chat](https://github.com/umputun/agterm/tree/master/cookbook/two-agent-mailbox-chat#setup) for agent messages and session wake-ups.
 - [mailbox-chat skill](https://github.com/umputun/agterm/tree/master/cookbook/two-agent-mailbox-chat#setup) from the same recipe.
 - [webrev skill](https://github.com/umputun/agterm/tree/master/cookbook/annotate-document) to mark up documents.
 - [backlog skill](https://github.com/umputun/agterm/tree/master/cookbook/backlog-picker) to add and open backlog items.
-- [cronn](https://cronn.umputun.dev) for scheduled retro and night runs.
 
 ### Recommended
 
@@ -35,9 +41,10 @@ agent.
 
 ### Optional
 
+- [cronn](https://cronn.umputun.dev) to start the night and the retro on a schedule. `/lem init`
+  asks if you want them. Only then does it check cronn.
 - [Plannotator Inbox](https://plannotator.ai/inbox/) for [what waits for you while you are away](away.md#answer-from-the-inbox).
 - [`JEV_API_KEY`](settings.md#jev) for Jev. The [correction queue](#the-correction-queue) needs this key when it is on.
-- [codex persona agent](https://github.com/pySilver/lem/tree/main/skills/lem-panel) for the second half of a persona panel.
 - [task picker](board.md#open-it) to open a task board from a key in agterm. `lem doctor` gives the keymap line.
 
 [Update and remove](update.md#remove) gives the steps to remove Lem and its `.lem/` folder.
@@ -71,11 +78,13 @@ working directories. Answer it one time, or put the rule that `lem doctor` gives
 
 1. Start Claude Code in agterm, at the root of the repository.
 2. Type `/lem init`.
-3. Answer three questions: the product and its users, who a change affects, and what must never go
+3. If a required recipe is absent, Lem names each recipe and the files that it writes. Type
+   `install` to install them. Lem changes no recipe that you have.
+4. Answer three questions: the product and its users, who a change affects, and what must never go
    wrong.
-4. Read the page of assumptions, for example who merges. Type `change land owner` to correct one.
-5. Type `land`. Lem puts its settings on your base branch through a pull request on GitHub.
-6. Type `/lem` and your first request.
+5. Read the page of assumptions, for example who merges. Type `change land owner` to correct one.
+6. Type `land`. Lem puts its settings on your base branch through a pull request on GitHub.
+7. Type `/lem` and your first request.
 
 Lem pushes each task and opens its pull request on GitHub with no question. Your `land` approves
 this.

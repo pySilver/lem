@@ -30,13 +30,31 @@ several sessions open, and one named "init" belongs to none of his repositories.
 lem doctor
 ```
 
+The result's `brew` lines install each required or recommended program that is absent and that
+Homebrew ships. Give them to the owner as they are, in one block, above the rows they install. A
+row whose program Homebrew does not ship keeps its own way in its `without_it` and its `guide`.
+
 A required tool that is absent stops the onboarding: say which, what it is used for and how it is
-installed, and end. Every other row is no question now: an optional tool that is absent is one
-line of the hand-over page (the row's `without_it`), and a recommended tool that is absent, a cronn
-that does not run and the task picker are offers in the short list at the end of that page, and the correction queue is one
-question of step 6, on the first onboarding of a machine only. A
-`correction hook` row (a settings file that also names the hook) is one line of that page too, with each file and the entry its guide says to delete
-by hand.
+installed, and end. A required row that a recipe installs comes first, below. Every other row is
+no question now: an optional tool that is absent is one line of the hand-over page (the row's
+`without_it`), except cronn, which step 7 checks only when the owner wants the night or the retro;
+a recommended tool that is absent and the task picker are offers in the short list at the end of
+that page, and the correction queue is one question of step 6, on the first onboarding of a
+machine only. A `correction hook` row (a settings file that also names the hook) is one line of
+that page too, with each file and the entry its guide says to delete by hand.
+
+**The recipes.** A required row that is not found and names a `recipe` is installed by that
+recipe, which this session can follow. Two rows may name the same recipe, a program and its
+skill: that is one recipe. When there is at least one, do not stop yet. Name each recipe with its
+link, and what it writes and where (a program, a skill's folder, a hook in an agent's settings),
+as the recipe says, and offer the owner one word: `install`. Install nothing without that word.
+A recipe whose rows are all found is not named and not changed: no update of what is there.
+
+On `install`, read each recipe at its link and follow its steps, one recipe after the other. A
+write that your agent refuses you (the harness file says which) ends that recipe: give the owner
+its remaining commands, each on one line, and go on to the next. Then run `lem doctor` again and
+show what is still absent. A required row that is still not found stops the onboarding, as
+above. Without his word, the recipes' rows stop it the same way.
 
 ## 2. Examine the project
 
@@ -357,11 +375,7 @@ as corrections: edit, commit on the same branch, say for each file what changed.
   lists this repository's tasks, what waits for him first, and goes to the session of the one he
   picks, or opens its board when no session runs it. The keymap is agterm's file, and he adds the row's `line` to it himself, as the harness
   file says. A row with no `line` is no offer: its `without_it` says why;
-- **cronn**, when it is installed and not running: through the `cronn` skill when that skill is
-  there; its agent starts at login, so it is started only on his yes, and the harness file says
-  which steps he has to run himself. An absent cronn is no offer: it is a required tool, and
-  step 1 stopped for it;
-- **the scheduled jobs** of step 7, when cronn runs;
+- **the night and the retro on a schedule** (step 7), whatever step 1 showed of cronn;
 - **a paragraph for the project's agent document** (step 5);
 - **the allow rules**, only when the `permission mode` row shows no auto mode: their count, what they
   let a builder run with no question, and the one line he types to take them, with `DRAFT`
@@ -400,8 +414,8 @@ what repo it belongs to" (2026-11-15).
 
 ## 7. Scheduled work for this repository
 
-Only when step 1 showed cronn running, as an item of the offers of step 6. Two jobs that belong
-to this repository, each a session started in it with nobody at the terminal, which closes
+An item of the offers of step 6. Say nothing of cronn before the owner takes it: cronn is
+optional, and only a scheduled job needs it. Two jobs that belong to this repository, each a session started in it with nobody at the terminal, which closes
 itself at its end (`lem session close-job`) once he is not looking at it:
 
 - a retro each morning (`/lem retro`), so a correction that came back is on the board's
@@ -414,6 +428,16 @@ Offer a job only when its first run has something to read, and say what that is.
 landed tasks and the correction queue: in a repository with neither, say that it is worth adding
 after the first landing or once the queue is on, and add nothing now. A night run reads the
 backlog: with no item in it, say the same of the first item.
+
+On his yes to a job, read the `cronn` row of step 1, or of a new `lem doctor` when he installed
+something since:
+
+- **not found**: give him the line `brew install FORMULA`, with the row's `formula`, and its
+  guide, since its agent starts at login. The job waits until he says that cronn runs, and nothing
+  else waits for it;
+- **found and not running** (`running` is false): start it through the `cronn` skill when that
+  skill is there, only on his yes; the harness file says which steps he has to run himself;
+- **running**: add the job.
 
 Add a job only on the owner's yes, through the `cronn` skill when it is installed, and name the
 job after the repository. When the step is refused to you, give the owner the command. A scheduled job starts an agent that nobody watches: that choice is

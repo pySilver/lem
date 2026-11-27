@@ -9,6 +9,19 @@ names this session, and `agtermctl session context 'TEXT' --target ...` puts one
 work into the title bar. A stage that runs for a repository the session did not start in (the
 onboarding) does both, with the repository's name in each.
 
+## The recipes
+
+On the owner's `install` (`stages/init.md`, step 1). A recipe writes into his own folders: a
+program into a folder on the `PATH`, a skill into `~/.claude/skills/`, a hook into
+`~/.claude/settings.json`. Claude Code may refuse the agent a write under `~/.claude/`, its own
+settings and skills, also after his word: an agent does not write its own permissions, and auto
+mode refused the write of `.claude/settings.json` (a scratch repository, 2026-11-21). When it
+refuses one, give him the recipe's commands for that write, each on one line with `!` before it,
+which he types in this session. A skill that installs as a plugin (`claude plugin marketplace
+add`, then `claude plugin install`) takes those two commands as its recipe gives them.
+
+Not run yet: a refused write of a recipe.
+
 ## The onboarding's pull request
 
 On the owner's "land" (`stages/init.md`, step 6). `ROOT` is the repository's root, `BASE` the

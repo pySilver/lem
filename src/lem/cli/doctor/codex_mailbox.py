@@ -66,5 +66,6 @@ def mailbox_rows(look: Look) -> tuple[Row, ...]:
             used_for="a Codex reviewer receives the plan talk and sends its replies",
             without_it=FIX,
             guide=tool_words.MAILBOX.guide,
+            recipe=tool_words.MAILBOX.recipe,
         ),
     )

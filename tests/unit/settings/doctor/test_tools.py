@@ -144,12 +144,22 @@ def test_gh_is_required_found_not_signed_in_or_signed_in(stage: Stage) -> None:
     )
 
 
-def test_cronn_is_required_says_where_to_get_it_and_names_no_free_hour(
+def test_cronn_is_optional_for_the_night_and_the_retro_and_names_its_formula(
     stage: Stage,
 ) -> None:
     absent = cronn_row(stage.look())
-    assert (absent.need, absent.found, absent.running) == ("required", False, False)
-    assert "https://cronn.umputun.dev" in (absent.without_it or "")
+    assert (absent.need, absent.found, absent.running) == ("optional", False, False)
+    assert reported((absent,)).ok is True
+    assert "scheduled night and retro" in absent.used_for
+    said = absent.without_it or ""
+    assert "`/lem night`" in said
+    assert "`/lem retro`" in said
+    assert "`brew install umputun/apps/cronn`" in said
+    assert "https://cronn.umputun.dev" in said
+    assert (absent.formula, absent.guide) == (
+        "umputun/apps/cronn",
+        "https://cronn.umputun.dev",
+    )
     assert "free hour" not in json.dumps([absent.used_for, absent.without_it])
 
 
@@ -167,28 +177,68 @@ def test_an_installed_cronn_that_does_not_answer_is_not_running(stage: Stage) ->
     assert stage.asked[-1] == 9000
 
 
-def test_with_no_codex_its_row_is_highly_recommended_and_there_is_no_persona_row(
-    stage: Stage,
-) -> None:
-    rows = agents.codex_rows(stage.look())
-    assert names(rows) == ["codex"]
-    said = rows[0].without_it or ""
-    assert (rows[0].need, rows[0].found) == ("recommended", False)
+def test_with_no_codex_its_row_is_highly_recommended(stage: Stage) -> None:
+    row = tool_row(stage.look(), tool_words.CODEX)
+    said = row.without_it or ""
+    assert (row.need, row.found) == ("recommended", False)
     assert said.startswith("highly recommended, since without it Claude reviews")
     for words in ("second Claude", "not green", "one model family"):
         assert words in said
-    assert rows[0].guide == "https://github.com/openai/codex"
+    assert row.guide == "https://github.com/openai/codex"
 
 
-def test_codex_gets_a_row_for_the_persona_agent_whose_absence_fails_nothing(
+def test_codex_has_no_row_for_a_persona_agent_since_the_panel_runs_codex_exec(
     stage: Stage,
 ) -> None:
-    stage.tool("codex", "codex-cli 0.80")
-    rows = agents.codex_rows(stage.look())
-    assert names(rows) == ["codex", "codex persona agent"]
-    assert (rows[1].need, rows[1].found) == ("optional", False)
-    stage.write("home/.codex/agents/persona.toml", "x")
-    assert agents.codex_rows(stage.look())[1].found
+    furnished(stage).tool("codex", "codex-cli 0.80")
+    rows = gathered(stage.look())
+    assert named(rows, "codex").found
+    assert [name for name in names(rows) if "persona agent" in name] == []
+    assert "persona.toml" not in json.dumps([row.without_it for row in rows])
+
+
+def test_on_a_bare_machine_one_line_installs_the_formulas_and_one_the_casks(
+    stage: Stage,
+) -> None:
+    report = reported(gathered(stage.look()))
+    assert report.brew == (
+        "brew install git gh",
+        "brew install --cask umputun/apps/revmux umputun/apps/agterm codex claude-code",
+    )
+
+
+def test_the_brew_lines_name_only_the_absent_programs_and_never_optional_cronn(
+    stage: Stage,
+) -> None:
+    furnished(stage).tool("git")
+    assert reported(gathered(stage.look())).brew == ()
+    (stage.bin / "gh").unlink()
+    (stage.bin / "cronn").unlink()
+    (stage.bin / "codex").unlink()
+    assert reported(gathered(stage.look())).brew == (
+        "brew install gh",
+        "brew install --cask codex",
+    )
+    stage.tool("gh", "gh version 2.80", code=1)
+    assert reported(gathered(stage.look())).brew == ("brew install --cask codex",)
+
+
+def test_a_row_that_a_recipe_installs_names_the_recipe_and_a_recommended_one_does_not(
+    stage: Stage,
+) -> None:
+    rows = gathered(stage.look())
+    recipes = {row.name: row.recipe for row in rows if row.recipe}
+    mailbox = f"{tool_words.COOKBOOK}two-agent-mailbox-chat#setup"
+    assert recipes == {
+        "revmux skill": "https://github.com/umputun/revmux#agent-skills",
+        "webrev skill": f"{tool_words.COOKBOOK}annotate-document",
+        "backlog skill": f"{tool_words.COOKBOOK}backlog-picker",
+        "mailbox-chat": mailbox,
+        "mailbox-chat skill": mailbox,
+    }
+    assert all(named(rows, name).need == "required" for name in recipes)
+    revmux = named(rows, "revmux skill").without_it or ""
+    assert "`claude plugin install revmux@revmux`" in revmux
 
 
 def test_plannotator_is_optional_with_its_guide_and_the_version_found(

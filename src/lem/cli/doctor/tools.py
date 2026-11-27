@@ -1,5 +1,5 @@
-"""The rows of a program on PATH: found or not, with its version; the GitHub CLI signed in or
-not; cronn and whether its status answers; and the Python of Lem's app.
+"""The rows of a program on PATH: found or not, with its version and its Homebrew name; the
+GitHub CLI signed in or not; cronn and whether its status answers; and the Python of Lem's app.
 """
 
 import sys
@@ -40,6 +40,9 @@ def tool_row(look: Look, tool: tool_words.Tool) -> Row:
         used_for=tool.used_for,
         without_it=tool.without_it,
         guide=tool.guide,
+        formula=tool.formula,
+        cask=tool.cask,
+        recipe=tool.recipe,
     )
 
 

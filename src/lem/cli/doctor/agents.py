@@ -1,8 +1,8 @@
-"""The rows of the agents and the terminal: agterm with its skill and the task picker, Claude
-Code with Lem's builder, and Codex with the persona definition a panel needs there.
+"""The rows of the agents and the terminal: agterm with its skill and the task picker, and Claude
+Code with Lem's builder.
 
 A row that only a machine with its tool needs comes only with that tool: no agterm skill without
-agterm, no builder without Claude Code, no persona definition without Codex.
+agterm, no builder without Claude Code.
 """
 
 from pathlib import Path
@@ -13,7 +13,7 @@ import msgspec
 from lem.cli.doctor import plugins, tool_words
 from lem.cli.doctor.checkouts import roots
 from lem.cli.doctor.picker import picker_row
-from lem.cli.doctor.row import OPTIONAL, REQUIRED, Row
+from lem.cli.doctor.row import REQUIRED, Row
 from lem.cli.doctor.skills import HOMES, SKILL
 from lem.cli.doctor.tools import tool_row
 
@@ -23,7 +23,6 @@ if TYPE_CHECKING:
 # A project's own builder, which Claude Code takes before the plugin's.
 BUILDER = Path(".claude") / "agents" / "lem-builder.md"
 PLUGIN_BUILDER = Path("agents") / "lem-builder.md"
-PERSONA = Path(".codex") / "agents" / "persona.toml"
 BUILDER_FIX = (
     "Claude Code has no agent of that name and Lem starts no builder; install Lem's plugin "
     "in this repository: `claude plugin marketplace add pySilver/lem --scope project`, then "
@@ -97,27 +96,3 @@ def claude_rows(look: Look) -> tuple[Row, ...]:
         without_it=BUILDER_FIX,
     )
     return (row, builder)
-
-
-def codex_rows(look: Look) -> tuple[Row, ...]:
-    """Codex, and the persona definition a panel's second half needs in it."""
-    row = tool_row(look, tool_words.CODEX)
-    if not row.found:
-        return (row,)
-    path = look.home / PERSONA
-    held = path.is_file()
-    persona = Row(
-        name="codex persona agent",
-        need=OPTIONAL,
-        found=held,
-        detail=str(path) if held else None,
-        used_for=(
-            "the second half of a persona panel: each persona answered by the other model "
-            "family"
-        ),
-        without_it=(
-            "a panel has the answers of one model family, so a split between two is not "
-            f"seen; the lem-panel skill says what {path} holds"
-        ),
-    )
-    return (row, persona)

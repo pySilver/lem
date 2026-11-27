@@ -1,9 +1,11 @@
-"""The install guide has the same groups and recipe links as the doctor."""
+"""The install guide has the same groups and recipe links as the doctor, and the Homebrew lines
+the doctor gives on a machine with none of the programs."""
 
 import re
 from typing import TYPE_CHECKING
 
-from lem.cli.doctor.rows import guarded
+from lem.cli.doctor.row import reported
+from lem.cli.doctor.rows import gathered, guarded
 from lem.cli.doctor.tool_parts import TOOL_PARTS
 from unit.guides.test_guides import text_of
 from unit.settings.doctor.stage import Stage
@@ -11,10 +13,12 @@ from unit.settings.doctor.stage import Stage
 if TYPE_CHECKING:
     from pathlib import Path
 
+# The rows that come with Lem itself: the app's own Python and the plugin's builder. The guide
+# lists only what a developer installs.
+WITH_LEM = {"python3", "lem-builder agent"}
 ROW_NAMES = {
     "Claude Code": "claude",
     "Codex": "codex",
-    "Python 3.14": "python3",
     "GitHub CLI": "gh",
     "Plannotator Inbox": "plannotator",
     "JEV_API_KEY": "Jev key",
@@ -50,7 +54,19 @@ def test_the_install_guide_says_each_tools_tier_as_the_machine_check_has_it(
                 links[name] = link
 
     rows = [row for part in TOOL_PARTS for row in guarded(part, look)]
+    rows = [row for row in rows if row.name not in WITH_LEM]
     assert sorted(listed) == sorted((row.name, row.need) for row in rows)
     for row in rows:
         if row.guide:
             assert links[row.name] == row.guide, row.name
+
+
+def test_the_install_guide_gives_the_brew_lines_of_a_machine_with_none_of_the_programs(
+    tmp_path: Path,
+) -> None:
+    bare = reported(gathered(Stage(tmp_path).look()))
+    needs = (
+        text_of("install.md").split("## What you need\n", 1)[1].split("\n### ", 1)[0]
+    )
+    blocks = re.findall(r"```bash\n(.*?)```", needs, flags=re.DOTALL)
+    assert [line for block in blocks for line in block.splitlines()] == list(bare.brew)
