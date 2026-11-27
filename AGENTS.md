@@ -84,7 +84,8 @@ built from the pages of `docs/`, say what it does and how it works; the site's l
 A release is one commit on `main` and its tag, on the owner's word: `version` in
 `.claude-plugin/plugin.json` and in the `lem` entry of `.claude-plugin/marketplace.json` is
 `NUMBER`, the entry's `ref` is `vNUMBER`, and `BEFORE` in `src/lem/model/task/release.py` names the
-release before. Commit it as `chore(release): Lem NUMBER`, tag it `vNUMBER`, and run
+release before. The entry's source is the HTTPS clone URL, so an update needs no SSH key for
+GitHub. Commit it as `chore(release): Lem NUMBER`, tag it `vNUMBER`, and run
 `git push --atomic origin main vNUMBER`. Then the formula of `pySilver/homebrew-tap` takes the tag,
 built with uv from the release's `uv.lock`. An update installs that tag, so a merge to `main`
 reaches no user. A release reads the records of `BEFORE` and none older. The owner's Mac takes each

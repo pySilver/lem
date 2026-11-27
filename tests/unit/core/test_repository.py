@@ -1,4 +1,5 @@
-"""The repository's own rules that core holds: the package's version is the plugin's, one
+"""The repository's own rules that core holds: the package's version is the plugin's, the
+marketplace clones the release's tag over HTTPS, one
 hatchling builds and checks it, CI starts by hand only, and no command leaves bytecode in the
 checkout."""
 
@@ -22,6 +23,20 @@ def test_the_package_and_the_running_release_are_the_plugins_version() -> None:
     ]
     assert importlib.metadata.version("lem") == plugin
     assert release.running() == plugin
+
+
+def test_the_marketplace_clones_the_release_tag_over_https() -> None:
+    plugin = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text())[
+        "version"
+    ]
+    marketplace = json.loads((ROOT / ".claude-plugin" / "marketplace.json").read_text())
+    (entry,) = [p for p in marketplace["plugins"] if p["name"] == "lem"]
+    source = entry["source"]
+    assert source["source"] == "url"
+    assert source["url"].startswith("https://")
+    assert source["url"].endswith(".git")
+    assert source["ref"] == f"v{plugin}"
+    assert entry["version"] == plugin
 
 
 def test_the_build_backend_and_the_dev_tools_name_one_hatchling() -> None:

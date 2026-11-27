@@ -8,8 +8,8 @@
     {
       "name": "lem",
       "source": {
-        "source": "github",
-        "repo": "pySilver/lem",
+        "source": "url",
+        "url": "https://github.com/pySilver/lem.git",
         "ref": "v0.4.1"
       },
       "description": "Lem coordinates the agents that write code in one repository.",
