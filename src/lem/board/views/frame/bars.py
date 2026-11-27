@@ -15,18 +15,18 @@ if TYPE_CHECKING:
 DEMO = "DEMO · "
 
 
-def head(world: World, title: str, counts: counted.Counted) -> Head:
+def head(world: World, title: str, counts: counted.Counted, *, joined: bool) -> Head:
     """The page's head: its title, its stream and version, and the agterm jump on this Mac."""
     viewer = world.viewer
     mark = DEMO if world.demo else ""
+    repo = f"{viewer.host}/{viewer.workspace}" if joined else world.place.repo
     if viewer.task is None:
         builds = counts.count("build", "building")
-        repo = world.place.repo
         named = (
             f"{mark}{title} · Lem · {repo} · {builds} build · {counts.waits} for you"
         )
     else:
-        named = task_title(world, counts, viewer.task, mark)
+        named = task_title(counts, viewer.task, mark, repo)
     return Head(
         title=named,
         stream=f"{viewer.base}/stream",
@@ -35,11 +35,10 @@ def head(world: World, title: str, counts: counted.Counted) -> Head:
     )
 
 
-def task_title(world: World, counts: counted.Counted, slug: str, mark: str) -> str:
+def task_title(counts: counted.Counted, slug: str, mark: str, repo: str) -> str:
     """The title of a page whose panel shows the task `slug`."""
     label = label_of(counts, slug)
     title = title_of(slug)
-    repo = world.place.repo
     return f"{mark}{title} · {label} · Lem · {repo}"
 
 

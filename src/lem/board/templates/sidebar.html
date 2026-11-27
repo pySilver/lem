@@ -1,7 +1,11 @@
 <aside class="side" id="side" aria-label="Lem">
 <div class="brand">
 <picture class="mark"><source media="(prefers-color-scheme: dark)" srcset="{{ assets }}/icons/icon-64-night.png"><img src="{{ assets }}/icons/icon-64.png" alt=""></picture>
-<div><div class="b-name">Lem</div><div class="b-repo" title="{{ side.repo_title }}">{{ side.repo }}</div></div>
+<div>
+<div class="b-name">Lem</div>
+{% if side.switcher.host %}<div class="b-host">{{ side.switcher.host }}</div>{% endif %}
+<div class="b-repo" title="{{ side.repo_title }}">{{ side.repo }}</div>
+</div>
 <i class="beacon{% if side.beacon_bad %} bad{% endif %}" title="{{ side.beacon }}"></i>
 </div>
 <div class="notices">

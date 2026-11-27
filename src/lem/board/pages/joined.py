@@ -12,6 +12,8 @@ if TYPE_CHECKING:
     from lem.board.views import world
     from lem.store.places import Workspace
 
+HOP = "Lem-Hop"
+
 
 def local_rows(request: Request, current: counts.Row | None = None) -> counts.Rows:
     """The local rows, with the open page's own counts in its switcher."""
@@ -24,9 +26,17 @@ def combined(request: Request, own: counts.Rows) -> counts.Rows:
     return anyio.from_thread.run(request.app.state.peer_spaces, request, own)
 
 
+def has_peers(request: Request) -> bool:
+    """A relay or a loaded peer table identifies a joined board, even with no peer rows."""
+    registry = getattr(request.app.state, "peer_registry", None)
+    return HOP in request.headers or bool(
+        registry and not registry.trouble and registry.known
+    )
+
+
 def peer_problem(request: Request) -> str | None:
     """The local peer table's last failure, for a direct request only."""
-    if "Lem-Hop" in request.headers:
+    if HOP in request.headers:
         return None
     registry = getattr(request.app.state, "peer_registry", None)
     return registry.trouble if registry else None

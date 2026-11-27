@@ -32,11 +32,20 @@ in the optional [Plannotator Inbox](away.md#answer-from-the-inbox).
 ## Two computers, one address
 
 1. On each computer, type `/lem serve tailscale` one time.
-2. On the computer whose address you open, type `/lem serve join HOST`. HOST is the Tailscale name
-   of the other computer.
+2. On the computer whose address you open, type `/lem serve join HOST[:PORT]`.
+
+`HOST` is the Tailscale name of the other computer. Lem uses this computer's door port if you
+omit `:PORT`. The default door port is 4537.
+
+- If both doors use the same port, type `/lem serve join silvers-mac-mini`.
+- If the other door uses a different port, add that port. For port 4538, type
+  `/lem serve join silvers-mac-mini:4538`.
 
 That address then lists the repositories of both computers. A computer that does not answer shows
 "not reachable". `/lem serve leave HOST` removes it.
+
+The browser tab, the sidebar header, and the workspace switcher show the machine and workspace.
+Each workspace has its own `/HOST/WORKSPACE/` address, even when two workspaces have the same name.
 
 ## The server
 
@@ -65,7 +74,7 @@ Type these in Claude Code:
 
 - `/lem serve`: starts the server if necessary, and gives the board's address.
 - `/lem serve tailscale`, `/lem serve tailscale off`: lets your phone in, or closes the door.
-- `/lem serve join HOST`, `/lem serve leave HOST`: adds or removes a second computer.
+- `/lem serve join HOST[:PORT]`, `/lem serve leave HOST`: adds or removes a second computer.
 - `/lem serve stop`: stops the server.
 
 After a remote login with no Claude Code, run Lem's command:

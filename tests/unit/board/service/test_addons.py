@@ -2,13 +2,15 @@
 
 from typing import TYPE_CHECKING
 
+import httpx
 import msgspec
 
 from fakes.records import MOMENT, record
 from lem.addons.inbox import messages, records, schedule
-from lem.addons.peers import rows
+from lem.addons.peers import registry, rows, table
 from lem.cli.serve import inbox
 from lem.store import owner, tasks
+from unit.board.pages.markup import Parsed
 
 if TYPE_CHECKING:
     import anyio
@@ -22,6 +24,7 @@ def test_the_board_serves_the_same_peer_on_the_index_api_and_switcher(
 ) -> None:
     class Joined:
         trouble = None
+        known: dict[str, object] = {}
 
         def reload(self) -> dict[str, object]:
             return {}
@@ -30,20 +33,50 @@ def test_the_board_serves_the_same_peer_on_the_index_api_and_switcher(
             remote = rows.Row(name="shop", host="desk", url="/desk/shop/", waits=3)
             return (*own, remote)
 
-    board.app.state.peer_registry = Joined()
     client = board.main()
+    solo = Parsed(client.get("/studio/shop/").text).root.one(cls="brand")
+    assert solo.one(cls="b-name").raw() == "Lem"
+    assert solo.one(cls="b-repo").raw() == "shop"
+    assert not solo.all(cls="b-host")
+
+    board.app.state.peer_registry = Joined()
     assert {row["url"] for row in client.get("/api/workspaces").json()} == {
         "/studio/shop/",
         "/desk/shop/",
     }
     assert "desk/shop" in client.get("/").text
     page = client.get("/studio/shop/").text
+    brand = Parsed(page).root.one(cls="brand")
+    assert brand.one(cls="b-name").raw() == "Lem"
+    assert brand.one(cls="b-host").raw() == "studio"
+    assert brand.one(cls="b-repo").raw() == "shop"
     assert 'href="/desk/shop/"' in page
+    assert " · Lem · studio/shop · " in page
     assert page.count('aria-current="true"') >= 1
     assert {
         row["host"]
         for row in client.get("/api/workspaces", headers={"Lem-Hop": "1"}).json()
     } == {"studio"}
+
+
+def test_a_joined_board_names_its_machine_even_when_its_peer_has_no_workspaces(
+    board: Board,
+) -> None:
+    async def address(host: str, port: int) -> str:
+        return f"https://{host}.test.invalid:{port}"
+
+    table.change(board.home, "desk", 19037)
+    board.app.state.peer_registry = registry.Registry(
+        home=board.home,
+        own="studio",
+        address=address,
+        transport=httpx.MockTransport(lambda _: httpx.Response(200, json=[])),
+    )
+    client = board.main()
+    page = client.get("/studio/shop/").text
+    assert " · Lem · studio/shop · " in page
+    assert '<span class="ws-host">studio</span>' in page
+    assert 'id="ws-switcher"' not in page
 
 
 def test_the_inbox_duty_runs_until_stop_and_uses_the_door_for_each_real_workspace(

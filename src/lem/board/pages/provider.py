@@ -37,7 +37,12 @@ def inputs(
         wanted(parse_qs(str(query))),
         live.note_of(query.get("note"), space.checkout, drawn.viewer.task),
         selection(request, found.settings.state.keep_days),
-        switcher=spaces.menu(rows, drawn.viewer.workspace, drawn.viewer.host),
+        switcher=spaces.menu(
+            rows,
+            drawn.viewer.workspace,
+            drawn.viewer.host,
+            joined=joined.has_peers(request),
+        ),
     )
 
 

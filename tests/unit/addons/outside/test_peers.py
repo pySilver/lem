@@ -230,6 +230,17 @@ def test_cli_leaves_a_peer_without_looking_for_tailnet(
     assert lem("serve", "peers").result() == {"peers": []}
 
 
+def test_join_help_shows_when_to_add_the_port() -> None:
+    from fakes.command import lem
+
+    seen = lem("serve", "join", "--help")
+    words = " ".join(seen.stdout.split())
+    assert seen.code == 0
+    assert "Usage: lem serve join [OPTIONS] HOST[:PORT]" in words
+    assert "Add :PORT if the other machine's door uses a different port." in words
+    assert "its own door port (4537 by default)" in words
+
+
 @pytest.mark.parametrize("location", ("path", "local", "app", "override"))
 def test_local_status_prefers_the_cli_and_runs_the_bundled_app(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, location: str

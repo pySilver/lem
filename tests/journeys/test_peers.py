@@ -209,6 +209,8 @@ def test_peer_pages_assets_union_and_loop_guard(tmp_path: Path) -> None:
                 "/beta/shop/", headers={"Cookie": "lem_board=wide; another=no"}
             )
             assert "text/html" in seen.headers["content-type"]
+            assert " · Lem · beta/shop · " in seen.text
+            assert '<span class="ws-host">beta</span>' in seen.text
             assert 'id="card-repair-export"' in seen.text
             assert "data-agterm-url-value" not in seen.text
             assert 'href="/alpha/app/"' in seen.text
