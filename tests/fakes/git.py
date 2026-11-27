@@ -20,7 +20,14 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from lem.ports.faults import Unanswered
-from lem.ports.git_facts import Commit, Conflict, DiffStat, GitRefused, RebaseState
+from lem.ports.git_facts import (
+    LEASE,
+    Commit,
+    Conflict,
+    DiffStat,
+    GitRefused,
+    RebaseState,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Collection
@@ -557,7 +564,7 @@ class ModelGit:
     ) -> str | GitRefused:
         there = self.remote.get(branch)
         if there != expect:
-            return GitRefused(said=f"stale info: {branch} is at {there}, not {expect}")
+            return GitRefused(said=f"{LEASE}: {branch} is at {there}, not {expect}")
         self.remote[branch] = self.fetched[branch] = self.must(worktree, commit)
         return self.remote[branch]
 

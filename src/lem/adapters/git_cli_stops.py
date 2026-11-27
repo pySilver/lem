@@ -20,7 +20,7 @@ UNMERGED = "--diff-filter=U"
 def rebase_folder(shell: Shell, where: Path) -> Path | None:
     """The folder of the rebase in progress in the worktree `where`, or None."""
     for name in REBASE_FOLDERS:
-        found = Path(shell.said(where, "rev-parse", ABSOLUTE, "--git-path", name))
+        found = git_file(shell, where, name)
         if found.is_dir():
             return found
     return None
@@ -48,11 +48,22 @@ def named_by(shell: Shell, where: Path, which: str) -> tuple[str, ...]:
 
 
 def merge_stopped(shell: Shell, where: Path) -> tuple[str, ...] | None:
-    """The files a merge that stopped in `where` left unmerged; an empty tuple for a merge
-    that stopped with none (a hook that refused its commit), None for no merge in progress."""
+    """The files a merge that stopped in `where` left for a builder: those unmerged, else,
+    when the merge stopped on a conflict whose resolution `rerere.autoupdate` staged (git
+    keeps the conflict's `MERGE_RR` then), the files the merge staged; an empty tuple for a
+    merge that stopped on none (a hook that refused its commit), None for no merge in
+    progress."""
     if shell.commit_at(where, "MERGE_HEAD") is None:
         return None
-    return named_by(shell, where, UNMERGED)
+    found = named_by(shell, where, UNMERGED)
+    if found or not git_file(shell, where, "MERGE_RR").is_file():
+        return found
+    return named_by(shell, where, "--cached")
+
+
+def git_file(shell: Shell, where: Path, name: str) -> Path:
+    """The path of `name` in the git folder of the worktree `where`."""
+    return Path(shell.said(where, "rev-parse", ABSOLUTE, "--git-path", name))
 
 
 def too_old(shell: Shell, where: Path, said: bytes) -> str:

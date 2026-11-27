@@ -16,7 +16,7 @@ from lem.adapters.git_cli_reset import ignored_collision
 from lem.adapters.git_cli_shell import GIT, QUIET, Shell, all_words, last_words
 from lem.adapters.git_cli_stops import conflicted, merge_stopped, rebase_folder
 from lem.ports.faults import Unanswered
-from lem.ports.git_facts import Conflict, GitRefused
+from lem.ports.git_facts import LEASE, Conflict, GitRefused
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -57,7 +57,7 @@ class Rewrite(Shell):
         if stopped:
             return Conflict(files=stopped)
         if stopped is not None:
-            # a hook refused the merge's commit: nothing of it stays
+            # a hook refused the merge's commit, which no conflict stopped: nothing stays
             self.said(worktree, "merge", "--abort")
         return GitRefused(said=all_words(ran.stderr or ran.stdout))
 
@@ -78,10 +78,13 @@ class Rewrite(Shell):
         there = self.on_origin(worktree, ref)
         if there != (expect or ""):
             # git checks no lease for a push that changes nothing, so it is read here too
-            return GitRefused(said=f"stale info: origin's {ref} is not {expect}")
+            return GitRefused(said=f"{LEASE}: origin's {ref} is not {expect}")
         lease = f"--force-with-lease={ref}:{there}"
         sent = f"{commit}:{ref}"
         ran = self.tried(worktree, "push", QUIET, lease, "origin", sent)
+        if ran.returncode and f"({LEASE})" in ran.stderr:
+            # origin moved between the read above and the push
+            return GitRefused(said=f"{LEASE}: {last_words(ran)}")
         if ran.returncode:
             return GitRefused(said=last_words(ran))
         return commit

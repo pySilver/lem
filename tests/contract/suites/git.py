@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Protocol
 
 import pytest
 
-from lem.ports.git_facts import Conflict, GitRefused
+from lem.ports.git_facts import LEASE, Conflict, GitRefused
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -170,6 +170,7 @@ class GitContract:
         third = commit_file(world, where, "a.txt", b"aaa\n")
         refused = world.git.push(where, "fix-the-login", second, commit=third)
         assert isinstance(refused, GitRefused)
+        assert refused.said.startswith(LEASE)
         world.git.fetch(where)
         assert world.git.remote_head(where, "fix-the-login") == teammate
         assert world.git.tip(where, "HEAD") == third
