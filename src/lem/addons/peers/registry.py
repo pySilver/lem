@@ -3,7 +3,7 @@
 import asyncio
 from dataclasses import dataclass, field
 from functools import partial
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import httpx
 
@@ -13,6 +13,8 @@ from lem.kernel.errors import Refusal
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from starlette.requests import Request
 
 # One shared wait for fresh answers, as on main (2026-11-25).
 LIST_WAIT = 0.6
@@ -99,3 +101,11 @@ def kept(old: look.Peer | None, name: str, port: int) -> look.Peer:
     if old is not None and old.port == port:
         return old
     return look.Peer(name, port)
+
+
+def held(request: Request) -> Registry:
+    """The registry of the request's board app, made on its first peer-related request."""
+    state = request.app.state
+    if not hasattr(state, "peer_registry"):
+        state.peer_registry = Registry(home=state.home, own=state.facts.host)
+    return cast("Registry", state.peer_registry)

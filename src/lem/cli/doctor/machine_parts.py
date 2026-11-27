@@ -18,6 +18,7 @@ from lem.cli.doctor.codex_mailbox import mailbox_rows
 from lem.cli.doctor.correction_hook import correction_hook_rows
 from lem.cli.doctor.installed import installed_rows
 from lem.cli.doctor.old_forms import old_forms_row
+from lem.cli.doctor.peer_rows import peer_rows
 from lem.cli.doctor.reads import reads_row
 from lem.cli.doctor.row import OPTIONAL, PROJECT, REQUIRED
 
@@ -31,6 +32,7 @@ MACHINE_PARTS: tuple[Part, ...] = (
     ("installed Lem", OPTIONAL, installed_rows),
     ("board notifications", OPTIONAL, door_rows.notifications_row),
     ("board door", OPTIONAL, door_rows.door_row),
+    ("joined machines", OPTIONAL, peer_rows),
     (old_settings.NAME, PROJECT, old_settings.settings_rows),
     ("project personas", PROJECT, personas.persona_rows),
     (CODEX_MAILBOX, REQUIRED, mailbox_rows),

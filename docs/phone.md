@@ -47,6 +47,25 @@ That address then lists the repositories of both computers. A computer that does
 The browser tab, the sidebar header, and the workspace switcher show the machine and workspace.
 Each workspace has its own `/HOST/WORKSPACE/` address, even when two workspaces have the same name.
 
+### Open a session of the other computer
+
+On the computer with your agterm, open the board at its local address, `http://127.0.0.1:4536/`.
+The Tailscale address shows no button there. A task of the other
+computer then has **Open the session**. A click shows its session and its companions in your
+agterm.
+
+This needs:
+
+1. ssh from this computer to the other computer, with a key. Lem uses the Tailscale name. For
+   another name or user, write a `Host` alias of the Tailscale name in `~/.ssh/config`.
+2. On the other computer, agterm in Live sessions mode. In agterm's Settings, General, set
+   Restore sessions to Live sessions, and restart agterm.
+3. On the other computer, agterm's command line tool, `agtermctl`.
+4. On this computer, agterm 0.42.0 or newer.
+
+`lem doctor` shows one row for each joined computer. When a click fails, the page tells why and
+what to do.
+
 ## The server
 
 A new Claude Code session in a repository that uses Lem starts the server, and so does the first

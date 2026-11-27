@@ -28,27 +28,28 @@ async def relay(
     request: Request,
     machine: Peer,
     registry: Registry,
-    listed: tuple[Row, ...],
+    seen: tuple[tuple[Row, ...], bool],
 ) -> Response:
-    """Keep the linked host and path on the peer and pass only allowed headers."""
+    """Keep the linked host and path on the peer and pass only allowed headers; `seen` is the
+    switcher's rows and whether the owner reads the page on this Mac."""
     try:
         base = await registry.address(machine.name, machine.port)
     except Refusal as error:
         machine.failed(error.why)
         return unavailable(machine.name)
-    return forwarded(request, machine, registry, (base, listed))
+    return forwarded(request, machine, registry, (base, *seen))
 
 
 def forwarded(
     request: Request,
     machine: Peer,
     registry: Registry,
-    target: tuple[str, tuple[Row, ...]],
+    target: tuple[str, tuple[Row, ...], bool],
 ) -> Response:
     """Create the response whose lifetime owns the HTTP client."""
-    base, listed = target
+    base, listed, here = target
     url = httpx.URL(base).copy_with(raw_path=target_path(request))
-    headers = requests.outgoing(dict(request.headers), listed)
+    headers = requests.outgoing(dict(request.headers), listed, here=here)
     return Relay(
         machine=machine,
         registry=registry,

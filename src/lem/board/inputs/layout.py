@@ -14,7 +14,8 @@ class Viewer(Input, frozen=True, kw_only=True):
     """Who asks for the page: the machine and the workspace of its address and their base
     (`/studio/shop`), the view under the panel, the task, tab and file the address opens, and
     the question key and the owner's words sent to a confirm step. Whether the page is for
-    this Mac (the agterm jump), whether it may act (on this Mac or through the
+    a Mac with the owner's agterm (the agterm jump: this Mac, or the Mac of the joined board
+    that relays it), whether it may act (on this Mac or through the
     tailnet door), whether it is the Hotwire Native app (every link a whole visit); and the
     cookie: the folded columns, the folded sidebar, the panel across the whole width, its width
     in pixels, and the task's header open."""

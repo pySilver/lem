@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import httpx
 import msgspec
 
-from lem.addons.peers.requests import HOP
+from lem.addons.peers.requests import HOP, JSON_CAP
 from lem.addons.peers.rows import Row, gray, located
 from lem.addons.peers.server import Server
 from lem.kernel.errors import Refusal
@@ -21,7 +21,6 @@ WORKSPACES_PATH = "/api/workspaces"
 # Bounds held by main's peer client (2026-11-25).
 LIST_TIMEOUT = 4
 LIST_FRESH = 5
-JSON_CAP = 1_000_000
 
 type Address = Callable[[str, int], Awaitable[str]]
 
