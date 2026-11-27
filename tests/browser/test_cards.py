@@ -278,6 +278,39 @@ def test_an_answer_on_one_board_replaces_the_open_card_on_the_other(
     expect(here.locator("#card-step")).not_to_contain_text(taken)
 
 
+def test_the_board_that_took_the_answer_closes_the_card(
+    cards: Board, window: OpenWindow
+) -> None:
+    show_rounding(cards)
+    here = opened_card(cards, window, phone=False)
+    card = here.locator("#card-step iframe").content_frame
+    card.locator(".hd-q.cur .hd-opt").filter(has_text="Only the total").locator(
+        ".hd-label"
+    ).click()
+    card.locator(".hd-q.cur textarea").fill("For the export")
+    send = card.locator(".hd-foot button.primary")
+    send.click()
+    expect(card.locator(".hd-review.cur")).to_be_visible()
+    send.click()
+    expect(card.locator(".hd-done")).to_contain_text(SUCCESS)
+    assert answer(cards, CARD).source == "board"
+    expect(here.locator("#card-step iframe")).to_have_count(0, timeout=STREAM_WAIT)
+
+
+def test_the_line_after_an_answer_has_a_background_of_its_own(
+    cards: Board, window: OpenWindow
+) -> None:
+    page_id, _, _ = template(cards, "tune")
+    page = window(DESKTOP, phone=False).pages[0]
+    open_card(page, cards, page_id)
+    page.locator(".hd-label").filter(has_text="Soft").click()
+    page.locator(".hd-foot button.primary").click()
+    done = page.locator(".hd-done")
+    expect(done).to_contain_text(SUCCESS)
+    drawn = done.evaluate("line => getComputedStyle(line).backgroundColor")
+    assert drawn not in {"rgba(0, 0, 0, 0)", "transparent"}, drawn
+
+
 def test_tune_records_the_slider_value_and_the_preset_it_started_from(
     cards: Board,
     window: OpenWindow,
