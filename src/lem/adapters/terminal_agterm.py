@@ -12,6 +12,7 @@ selects a session. The picker waits for the owner's answer and gives the row he 
 """
 
 import json
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import msgspec
@@ -21,8 +22,6 @@ from lem.adapters.agterm_sessions import SESSION, TARGET, AgtermLooks
 from lem.ports.faults import Unanswered
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from lem.ports.place import Place
     from lem.ports.terminal import Opening, PickRow, ShowMode
 
@@ -33,6 +32,10 @@ SHOWN = (
     ("overlay", ()),
     ("browser", ("--browse", "--navigation")),
 )
+# The scheme of a page that is a local file: agterm shows it with `--html`, and takes `--url` for an
+# http or https address only (`--url must be an absolute http or https URL`, lem.log of
+# 2026-11-27).
+LOCAL_SCHEME = "file:"
 # The exit of `agtermctl pick` when the owner closes the picker (`picker.CLOSED` on `main`).
 CLOSED = 2
 # The session a command runs in, as agterm names it in each pane's environment: its own name,
@@ -81,8 +84,7 @@ class AgtermTerminal(AgtermLooks):
             SESSION,
             "overlay",
             "open",
-            "--url",
-            url,
+            *page_words(url),
             "--js",
             *flags,
             TARGET,
@@ -118,6 +120,17 @@ class AgtermTerminal(AgtermLooks):
             told = (ran.stderr or ran.stdout).strip() or f"exit {ran.returncode}"
             raise Unanswered(TOOL, told)
         return picked(ran.stdout, rows)
+
+
+def page_words(url: str) -> tuple[str, ...]:
+    """The words of `session overlay open` that name the page at `url`: a local file by its
+    path, with read access to its folder, so that it reads the `lem.css` and `lem.js` beside
+    it; any other page, the board server's, by its address, with agterm's saved store of
+    cookies, so that the board's folded columns outlive a relaunch of agterm."""
+    if not url.startswith(LOCAL_SCHEME):
+        return ("--url", url, "--persistent")
+    page = Path.from_uri(url)
+    return ("--html", str(page), "--cwd", str(page.parent))
 
 
 def made_id(printed: str, call: str) -> str:

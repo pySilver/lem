@@ -6,6 +6,7 @@ import msgspec
 
 from fixtures.board import prose
 from fixtures.board.beside import OUTCOME, session
+from fixtures.board.make import output_of
 from fixtures.board.moments import BASE, pull
 from fixtures.board.receipt import CHART, DECISION_CHART, HOW, REASONS, SLUG, TIP
 from fixtures.board.shown import document, gone, since, task
@@ -407,7 +408,7 @@ CRITERIA = Criteria(
 
 def output(number: int) -> Link:
     """The link to a command's whole output on Artifacts."""
-    name = f"gate/{number:02d}.log"
+    name = output_of(number)
     return Link(
         href=f"{BASE}/tasks/{SLUG}/artifacts/{name}/",
         label="output",

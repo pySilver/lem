@@ -32,7 +32,7 @@ task.
 
    ```
    Read `skills/lem/prompts/investigator.md` in the folder that `lem version` prints as `root`, and follow it; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check.
-   request: TASK_DIRECTORY/ask.txt
+   request: TASK_DIRECTORY/task.md
    type: fix or question
    worktree: the path `lem task worktree SLUG --path` prints
    branch: the branch of step 2 of "The request"

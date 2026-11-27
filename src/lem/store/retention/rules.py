@@ -5,8 +5,8 @@ A task is `open` until it landed, was answered or was dropped; an ended one is `
 its newest moment is after the cutoff, and `old` after it. An old task keeps its small record:
 `task.json`, whose journal becomes one summary entry (`fold.py`) and whose citations of the
 files that go are cleared, its sessions (`sessions.jsonl`, so that Done and the token totals
-still count, and Lem's acts on them, so that no duty wakes it again), its ask, its request, the
-aside of a park, and its locks. Every other file of its folder goes.
+still count, and Lem's acts on them, so that no duty wakes it again), its request (`task.md`;
+the owner's words are the record's `ask`), and its locks. Every other file of its folder goes.
 """
 
 from typing import TYPE_CHECKING, Literal
@@ -30,9 +30,7 @@ KEPT = frozenset(
         "task.json",
         "sessions.jsonl",
         "session-acts.jsonl",
-        "ask.txt",
         "task.md",
-        "parked.json",
     )
 )
 LOCKS = ".lock"

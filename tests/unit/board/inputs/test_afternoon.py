@@ -129,8 +129,8 @@ def test_every_file_a_record_cites_is_in_its_tasks_folder(tmp_path: Path) -> Non
         for path in cited(slug):
             assert (places.task_folder(state, slug) / path).is_file(), (slug, path)
     assert cited("refund-line-on-receipt") == {
-        "gate/01.log",
-        "gate/02.log",
+        "checks/r1-1-000000000001.log",
+        "checks/r1-2-000000000002.log",
         "pr.md",
         "decisions.md",
     }

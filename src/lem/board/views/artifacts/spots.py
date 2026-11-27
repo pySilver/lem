@@ -35,9 +35,9 @@ SECTIONS = (
 WORK = "work"
 GROUPS = (*(key for key, _ in SECTIONS), WORK)
 CRITERIA_DOC = "criteria.md"
+# The key of the pull request's text, which the map gives the file the proposal names
+# (`pr-N-DIGEST.md`; `listing.entry_of`).
 PR_DOC = "pr.md"
-ASK = "ask.txt"
-TICKET = "ticket.txt"
 MEDIA_FOLDER = "media/"
 
 
@@ -66,8 +66,6 @@ class Hang(Frozen, frozen=True, kw_only=True):
 # The documents of a task's folder, by their name: their section and their title.
 DOCS = MappingProxyType(
     {
-        ASK: Spot(group=REQUEST, title="The request"),
-        TICKET: Spot(group=REQUEST, title="The ticket"),
         "task.md": Spot(group=REQUEST, title="The task"),
         "brief.md": Spot(group=REQUEST, title="The brief"),
         "talk.md": Spot(group=REQUEST, title="The talk that led to the request"),
@@ -78,43 +76,30 @@ DOCS = MappingProxyType(
         "criteria-read.md": Spot(
             group=CRITERIA, title="The personas' read of the criteria"
         ),
-        "criteria-page.html": Spot(group=CRITERIA, title="The criteria page"),
         "criteria-change.md": Spot(
             group=CRITERIA,
             title="The changed criteria, as the session wrote them for the change",
         ),
-        "design.md": Spot(group=PLAN, title="Design"),
         "directions.md": Spot(group=PLAN, title="The owner's directions"),
         "scout.md": Spot(group=PLAN, title="The scout's report"),
         "investigation.md": Spot(group=PLAN, title="Investigation"),
         "handoff.md": Spot(group=PLAN, title="Handoff"),
-        "talk-list.md": Spot(group=PLAN, title="The plan talk's list"),
+        "talk-turns.md": Spot(group=PLAN, title="The plan talk's turns"),
         "report.md": Spot(group=BUILD, title="Report"),
         "breaker.md": Spot(group=BUILD, title="What stopped the build"),
         "setup.log": Spot(group=CHECKS, title="Worktree setup output"),
         PR_DOC: Spot(group=PR, title="Pull request text"),
         "notes.md": Spot(group=PR, title="Notes for the pull request"),
         "merge-review.md": Spot(group=PR, title="The merge review"),
-        "handover.html": Spot(group=PR, title="The hand-over page"),
     }
 )
 # The records, by their name: the document they belong to, the word of their link, and the
-# tab of the board that shows them readable.
+# tab of the board that shows them readable. The other facts of a task (its criteria, its
+# decisions, its landing, its ticket, the task it was resumed from, its release) are fields of
+# its record, `task.json`, which the board reads as such.
 RECORDS = MappingProxyType(
     {
-        "criteria.json": Hang(of=CRITERIA_DOC, label="record", tab=CRITERIA),
-        "criteria-before.json": Hang(
-            of=CRITERIA_DOC, label="text before the change", tab=CRITERIA
-        ),
-        "decisions.jsonl": Hang(of=PR_DOC, label="decisions", tab=CRITERIA),
         "polish.json": Hang(of="report.md", label="polish pass", tab=CHECKS),
-        "landing.json": Hang(of=PR_DOC, label="landing", tab=CHECKS),
-        "read.json": Hang(of=PR_DOC, label="review's read", tab=CHECKS),
-        "state.md": Hang(of=ASK, label="state", tab="timeline"),
-        "ticket-steps.txt": Hang(of=TICKET, label="ticket steps", tab=None),
-        "ticket-repo.txt": Hang(of=TICKET, label="ticket repository", tab=None),
-        "resumed-from.txt": Hang(of=ASK, label="resumed from", tab=None),
-        "release.txt": Hang(of=ASK, label="release", tab=None),
     }
 )
 

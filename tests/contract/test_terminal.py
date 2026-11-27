@@ -67,6 +67,9 @@ def test_the_stand_in_refuses_what_agtermctl_refuses(tmp_path: Path) -> None:
         ["msg", "send", "x", "--to", "S-MINE:left", "--window", "W1"],
         ["session", "rename", "--target", "S-MINE"],
         ["session", "overlay", "open", "--html", "x.html", "--browse"],
+        ["session", "overlay", "open", "--html", "x.html", "--url", "http://a.b/"],
+        ["session", "overlay", "open", "--url", "http://a.b/", "--cwd", "/tmp"],
+        ["session", "overlay", "open", "--html", "x.html", "--persistent"],
         ["tree", "--all"],
     )
     for words in refused:
@@ -171,12 +174,50 @@ def test_a_page_shows_beside_the_session_or_over_it_and_selects_nothing(
     terminal = bound(standin)
     for mode in ("companion", "overlay", "browser"):
         terminal.show("S-MINE", "http://127.0.0.1:4600/board", mode)
+    board = ["--url", "http://127.0.0.1:4600/board", "--persistent", "--js"]
+    # the board keeps its cookies in agterm's saved store: a folded column outlives a relaunch
     assert standin.sessions()[0]["pages"] == [
-        ["--url", "http://127.0.0.1:4600/board", "--js", "--companion"],
-        ["--url", "http://127.0.0.1:4600/board", "--js"],
-        ["--url", "http://127.0.0.1:4600/board", "--js", "--browse", "--navigation"],
+        [*board, "--companion"],
+        board,
+        [*board, "--browse", "--navigation"],
     ]
     assert not [call for call in standin.calls() if call[:2] == ["session", "select"]]
+
+
+def test_a_local_page_shows_as_its_file_with_its_folder_and_never_as_a_file_address(
+    tmp_path: Path,
+) -> None:
+    standin = install(tmp_path / "agterm", [MINE])
+    terminal = bound(standin)
+    page = (tmp_path / "task" / "handover.html").resolve()
+    page.parent.mkdir()
+    page.write_text("<link rel=stylesheet href=lem.css><p>read me</p>")
+    terminal.show("S-MINE", page.as_uri(), "companion")
+    shown = [["--html", str(page), "--cwd", str(page.parent), "--js", "--companion"]]
+    assert standin.sessions()[0]["pages"] == shown
+    # agterm itself refuses a file's address as --url, the call Lem 0.4.0 made (lem.log,
+    # 2026-11-27)
+    ran = subprocess.run(
+        [
+            "agtermctl",
+            "session",
+            "overlay",
+            "open",
+            "--url",
+            page.as_uri(),
+            "--js",
+            "--companion",
+            "--target",
+            "S-MINE",
+        ],
+        env=standin.environ(),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert ran.returncode == 1
+    assert "--url must be an absolute http or https URL" in ran.stderr
+    assert standin.sessions()[0]["pages"] == shown
 
 
 def test_the_picker_gives_the_row_he_chose_or_none_when_he_closed_it(

@@ -14,7 +14,7 @@ import click
 import msgspec
 
 from lem.app.sessions import guard_steps, here, opening
-from lem.cli import place
+from lem.cli import listing, place
 from lem.cli.words import choice
 from lem.kernel import clock
 from lem.kernel.errors import Refusal
@@ -45,7 +45,8 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
 
 
 def run(call: Call) -> Envelope:
-    """Open the task's session, or give the one that runs."""
+    """Open the task's session, or give the one that runs, and put the workspace on the
+    machine's list, whose server guards and wakes the session."""
     if call.session is not None and call.why != "stopped":
         raise Refusal(
             "session-option",
@@ -58,11 +59,11 @@ def run(call: Call) -> Envelope:
         acted = guard_steps.stepped(
             bound, call.slug, "restart", call.session, clock.now()
         )
-        return here.enveloped(acted, acted.say)
+        return listing.listed(here.enveloped(acted, acted.say))
     made = opening.open_session(bound, call.slug, call.why, None, clock.now())
     waits = call.why == "new" and not made.already
     then = f"lem session wait {call.slug} --first-line" if waits else None
-    return here.enveloped(made, made.said(), then)
+    return listing.listed(here.enveloped(made, made.said(), then))
 
 
 COMMAND = click.Command(

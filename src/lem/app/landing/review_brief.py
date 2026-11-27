@@ -37,12 +37,11 @@ RECORD = "reviews/review-{0}.json"
 
 
 class Inputs(Frozen, frozen=True, kw_only=True):
-    """What a reviewer gets: the owner's words and the request, the plan or the criterion's
-    file, the range and the worktree, the lowered bar, the topics, the items the branch adds,
-    the base's items, and the review tool's folder."""
+    """What a reviewer gets: the owner's words as he gave them (the record's `ask`) and the
+    request, the plan or the criterion's file, the range and the worktree, the lowered bar, the
+    topics, the items the branch adds, the base's items, and the review tool's folder."""
 
     ask: str
-    words: str | None = None
     request: str | None = None
     plan: str | None = None
     range: str
@@ -95,7 +94,6 @@ def inputs(
     span = f"{world.base}..{world.tip}"
     return Inputs(
         ask=task.ask,
-        words=there(folder / "ask.txt"),
         request=there(folder / "task.md"),
         plan=task.plan.path if task.plan else there(folder / "criteria.md"),
         range=span,

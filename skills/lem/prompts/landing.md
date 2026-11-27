@@ -95,8 +95,9 @@ exact last line of its output; the tip (`git rev-parse HEAD`); the output of
 ## The removal of the task's item
 
 The brief gives the path of the backlog item the task was started from, as `lem land propose`
-named it: the task's ask is that path alone, so the task did that item's work, and its branch
-removes the item, so that the merge takes it off the base and off the board.
+named it: the task's record holds that item, since its ask asked for the item's work, so the task
+did that work, and its branch removes the item, so that the merge takes it off the base and off
+the board.
 
 1. Remove it in a commit of its own: `git -C WORKTREE rm -q -- PATH`, then `git -C WORKTREE
    commit -m MESSAGE -- PATH`, the message in the project's form, else `docs(backlog): the item of

@@ -22,7 +22,7 @@ Criteria that wait for his yes with no interview (a lead's, of a complete reques
 
    ```
    Read `skills/lem/prompts/scout.md` in the folder that `lem version` prints as `root`, and follow it; when `lem version` fails, stop and say that `lem` is not on the PATH, with `lem doctor` as the check.
-   request: TASK_DIRECTORY/ask.txt
+   request: TASK_DIRECTORY/task.md
    checkout: the main checkout's absolute path
    task directory: TASK_DIRECTORY
    ```

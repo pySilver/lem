@@ -43,8 +43,7 @@ and for a change to what a person sees, "A picture" and "A screenshot" in
    change made false in the same commit. A change whose list is empty has nothing to search for.
    Never push, merge or land. Then
    `git status --short` is empty: remove what your runs left untracked, such as a `__pycache__`.
-   When `ask.txt` in the task directory is the path of one item of the backlog folder and nothing
-   else, as the board's "Start a task" and the night write it, the task was started from that item
+   When the brief gives `item: PATH`, the task was started from that item of the backlog folder
    and your change did its work: remove the item with `git rm` in a commit of its own after the
    change's, `docs(backlog): the item of SLUG is done`, so that the merge takes it off the board.
 7. **What you saw outside the change.** The fast track has no polish pass, so a defect in code

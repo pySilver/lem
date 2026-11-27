@@ -47,8 +47,10 @@ class Shape(Frozen, frozen=True, kw_only=True):
 
 
 class Task(Frozen, frozen=True, kw_only=True):
-    """One task. `ask` is the owner's words, or the backlog item's path it started from
-    (`backlog_item`); `after` and `order` queue it behind other tasks, all of them, and by his
+    """One task. `ask` is the owner's words as given, the one place they are kept: his text,
+    with a backlog item's path in it or not, or the item's path alone when the board's "Start a
+    task" or the night opened it; `backlog_item` is the item whose work the task does, which its
+    branch removes; `after` and `order` queue it behind other tasks, all of them, and by his
     words; `mode` says whether it runs with the owner or alone (a night task); `owner_careful`
     is when the owner said the task is careful until its merge (`/lem be-careful`)."""
 

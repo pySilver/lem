@@ -278,7 +278,7 @@ open` makes it. It holds:
   now: take no tracker step, and tell the owner to restore those files.
 - `sessions.jsonl` and `session-acts.jsonl`: each Claude Code session of the task, as its
   `session-start` hook saw it, and each open, close and wake-up of Lem's (`lem session`).
-- `ask.txt` and `task.md`: the owner's words as given, and the ask with its outcome.
+- `task.md`: the ask with its outcome. The owner's words as given are `ask` in `task.json`.
 - `session.md`: the first thing a task's session reads, which `lem session open` writes: the task,
   its phase, why the session opened, and where it works.
 - `handoff.md`: what the agent that leaves a phase, or trips the breaker, leaves for the next one,

@@ -1,5 +1,6 @@
 """The facts of a task as the merge agent's brief gives them, by the keys of its standing text
-(`skills/lem/prompts/merge.md`; `main:land.cmd_merge_review`): the task's folder and worktree,
+(`skills/lem/prompts/merge.md`; `main:land.cmd_merge_review`): the owner's words as he gave
+them (the record's `ask`), the task's folder and worktree,
 the pull request, the range and its diff, the track, the task's files, the reviews, whether it
 is green and careful, who lands, why the owner merges, the pictures, the filed items, the
 stand-ins, the two ways the owner tries the branch, the base it reads, and what moved on it."""
@@ -28,7 +29,6 @@ if TYPE_CHECKING:
 
 # The task's files the agent reads where they are, each by the key the standing text names.
 TASK_FILES = (
-    ("words", "ask.txt"),
     ("request", "task.md"),
     ("criteria", "criteria.md"),
     ("report", "report.md"),
@@ -54,6 +54,7 @@ class Facts(msgspec.Struct, frozen=True, kw_only=True):
     """The facts of the task as the brief gives them, by the keys of the standing text."""
 
     task: str
+    ask: str
     worktree: str
     task_directory: str
     pull_request: Pull
@@ -87,8 +88,8 @@ def found(folder: Path, pattern: str) -> tuple[str, ...]:
 
 
 def texts_of(folder: Path, proposed: Proposed) -> dict[str, str]:
-    """The task's files the agent reads, by their keys: the pull request's text, the owner's
-    words, the request, the criteria, the report, the notes, an investigation."""
+    """The task's files the agent reads, by their keys: the pull request's text, the request,
+    the criteria, the report, the notes, an investigation."""
     texts: dict[str, str] = {}
     for key, name in TASK_FILES:
         if (folder / name).is_file():
@@ -106,6 +107,7 @@ def facts_of(context: Context, landing: Landing, read: tuple[Pull, Proposed]) ->
     worktree, task = str(context.worktree), context.record.task
     return Facts(
         task=task.slug,
+        ask=task.ask,
         worktree=worktree,
         task_directory=str(context.folder),
         pull_request=pull,

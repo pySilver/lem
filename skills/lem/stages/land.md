@@ -303,8 +303,11 @@ their own `say`, and take the landing up as after a cut-off.
    `--notes "TASK_DIR/notes.md"`, where `TASK_DIR` is the task directory's full path. Write it from
    `report.md` and the last review's file. The fast track's notes are the should findings the review left, one line each
    with its file and its bar call, or the one word `none`, `## Fixed on the way` and `## Seen, not filed` from the
-   builder's reply when it gave those lists, and `## Migration` when it is careful. Every other
-   request's have these headings, each holding what is true of this task or the one word `none`:
+   builder's reply when it gave those lists, and `## Migration` when it is careful. An ask that
+   names a backlog item the record does not hold (`lem task show SLUG` gives no `backlog_item`)
+   asked for other work: one line of the notes, under `## Not done` on the standard track, says
+   that the item stays, and why. Every other request's have these headings, each holding what is
+   true of this task or the one word `none`:
    - `## Decisions`: what the record of the task's decisions does not hold, one line each: what
      came up, what was chosen, and why in a few words. The lead's call on whether the task is
      careful, with its sentence of why, is one of them. Do not copy the record: the step puts
@@ -373,11 +376,12 @@ their own `say`, and take the landing up as after a cut-off.
    5). After a second read with no answer the request is proposed, not green, with "the criteria
    were not read" first.
    It refuses a request whose branch still holds the task's own item (`own-item`): a task started
-   from a backlog item (its ask is that item's path alone, as the board's "Start a task" and the
-   night write it) did that item's work, and its branch removes the item, so that the merge takes it
-   off the base and off the board. The polish pass and the fast track's builder remove it first;
-   when neither did, `spawn-builder` with the brief below, the job "the removal of the task's
-   item", and as its path the item the refusal names. Then the checks and this step again, as
+   from a backlog item (its record holds the item, `backlog_item` in `lem task show SLUG`: the
+   board's "Start a task", the night, and his words that ask for the item's work, `stages/new.md`,
+   "Open the task", step 3) did that item's work, and its branch removes the item, so that the
+   merge takes it off the base and off the board. The polish pass and the fast track's builder
+   remove it first; when neither did, `spawn-builder` with the brief below, the job "the removal
+   of the task's item", and as its path the item the refusal names. Then the checks and this step again, as
    `next` names them: the removal is a commit, which the checks run on, and the review still covers
    it when the builder changed nothing else. Nothing waits for the owner.
    The step pushes the task's branch and opens the pull request on GitHub, or updates the one that

@@ -107,13 +107,19 @@ def read(
     )
 
 
+def output_of(number: int) -> str:
+    """The path of the whole output of command `number` of the first round of the checks, as
+    the checks publish it (`app/landing/checks_run.py`), with a made-up digest."""
+    return f"checks/r1-{number}-{number:012x}.log"
+
+
 def passed(command: str, last: str, number: int) -> Outcome:
     """A command of the checks that passed, with its whole output in the run's log file."""
     return Outcome(
         command=command,
         exit=0,
         last=last,
-        output=f"gate/{number:02d}.log",
+        output=output_of(number),
         passed=True,
     )
 

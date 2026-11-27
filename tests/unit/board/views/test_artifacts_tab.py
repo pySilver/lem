@@ -93,7 +93,7 @@ def test_a_picture_shows_from_the_media_folder_and_opens_its_folder(
 def test_a_log_shows_its_lines_without_colors_and_a_file_not_read_says_so(
     tmp_path: Path,
 ) -> None:
-    found = opened(world(tmp_path), "gate/01.log")
+    found = opened(world(tmp_path), "checks/r1-1-000000000001.log")
     seen = owed.seen(found, SLUG)
     tab = artifacts(found, seen)
     assert tab.shown and tab.shown.body.lines == (
@@ -105,7 +105,10 @@ def test_a_log_shows_its_lines_without_colors_and_a_file_not_read_says_so(
     assert unread.shown and unread.shown.body.said == (
         "The board has no text of this file."
     )
-    assert unread.shown.body.where == "It is at gate/01.log in the task’s folder."
+    assert (
+        unread.shown.body.where
+        == "It is at checks/r1-1-000000000001.log in the task’s folder."
+    )
 
 
 def test_a_path_that_is_no_file_of_the_task_is_not_shown(tmp_path: Path) -> None:

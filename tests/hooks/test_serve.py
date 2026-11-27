@@ -1,5 +1,6 @@
 """The `serve` hook: when a Claude Code session starts or resumes in a repository that uses Lem, it
-starts `lem serve ensure` of its own app, detached, and the session does not wait for it; with
+starts `lem --repo CHECKOUT serve ensure` of its own app for the session's main checkout,
+detached, and the session does not wait for it; with
 `LEM_SERVE=off`, outside a repository of Lem, or in a state folder of Lem 0.3 it starts nothing.
 
 Every start here runs the stand-in `lem` of `claude_code.stand_in`, never Lem's own: the test
@@ -42,7 +43,8 @@ def test_a_session_in_a_repository_of_lem_starts_the_server_detached(
     took = time.monotonic() - began
     assert (ran.returncode, ran.stdout, ran.stderr) == (0, b"", b"")
     assert took < SLOW
-    assert calls_of(calls, 1) == ["serve ensure"]
+    due = f"--repo {(tmp_path / 'repo').resolve()} serve ensure"
+    assert calls_of(calls, 1) == [due]
 
 
 def test_no_server_starts_when_it_is_off_or_the_repository_is_no_lem_of_this_form(
@@ -66,6 +68,7 @@ def test_no_server_starts_when_it_is_off_or_the_repository_is_no_lem_of_this_for
     # the one start that is due comes last: a start of a case above would be in the calls too
     event = json.dumps({"cwd": str(tmp_path / "repo"), "source": "resume"}).encode()
     hooked("serve", event, LEM_HOOK_BIN=str(hook), LEM_SERVE="")
-    assert calls_of(calls, 1) == ["serve ensure"]
+    due = [f"--repo {(tmp_path / 'repo').resolve()} serve ensure"]
+    assert calls_of(calls, 1) == due
     time.sleep(0.5)
-    assert recorded(calls) == ["serve ensure"]
+    assert recorded(calls) == due

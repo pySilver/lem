@@ -23,8 +23,9 @@ def entry(path: str) -> Entry:
 
 
 def test_the_refund_line_has_seven_documents_on_its_map(tmp_path: Path) -> None:
-    """Today's `artifacts.arrange` over the laid folder gives 7: `ask.txt`, `state.md` and the
-    plan in the worktree, which made today's 9, are not in the afternoon."""
+    """Today's `artifacts.arrange` over the laid folder gives 7: `state.md` and the plan in the
+    worktree, which made `main`'s 9 with a file of the owner's words, are not in the
+    afternoon."""
     seen = owed.seen(world(tmp_path), SLUG)
     assert count(seen) == 11
     found = map_of(seen)
@@ -46,7 +47,10 @@ def test_the_refund_line_has_seven_documents_on_its_map(tmp_path: Path) -> None:
         "criteria": [],
         "plan": [],
         "build": ["report.md"],
-        "checks": ["gate/01.log", "gate/02.log"],
+        "checks": [
+            "checks/r1-1-000000000001.log",
+            "checks/r1-2-000000000002.log",
+        ],
         "review": [],
         "pr": ["merge-review.md", "page.html", "pr.md"],
     }
@@ -68,27 +72,25 @@ def test_a_record_hangs_on_its_document_and_what_the_map_does_not_know_is_a_work
     """The ruling "A task's artifacts have one map" (`main`'s
     test_board_task.Map.test_a_record_hangs_on_its_document_and_what_the_map_does_not_know_is_a_working_file)."""
     paths = (
-        "ask.txt",
-        "criteria.md",
-        "criteria.json",
-        "landing.json",
+        "task.md",
+        "report.md",
+        "polish.json",
         "notes/scratch.txt",
         "reviews/claude-01-whole.log",
         "reviews/shop/01-whole/report.md",
         "reviews/shop/01-whole/raw.json",
     )
     found = arrange(tuple(entry(path) for path in paths), {})
-    criteria = found.sections[1].docs[0]
-    assert criteria.doc.path == "criteria.md"
-    assert [(each.path, each.spot.label) for each in criteria.attached] == [
-        ("criteria.json", "record")
+    report = found.sections[3].docs[0]
+    assert report.doc.path == "report.md"
+    assert [(each.path, each.spot.label) for each in report.attached] == [
+        ("polish.json", "polish pass")
     ]
     assert [hung.doc.spot.title for hung in found.sections[5].docs] == [
         "Review round 01-whole"
     ]
     piles = {pile.folder: [each.path for each in pile.files] for pile in found.work}
     assert piles == {
-        "Records with no document": ["landing.json"],
         "notes": ["notes/scratch.txt"],
         "Review round 01-whole": [
             "reviews/claude-01-whole.log",
@@ -96,6 +98,27 @@ def test_a_record_hangs_on_its_document_and_what_the_map_does_not_know_is_a_work
         ],
     }
     assert found.count == 3
+    alone = arrange((entry("polish.json"),), {})
+    assert [
+        (pile.folder, [each.path for each in pile.files]) for pile in alone.work
+    ] == [("Records with no document", ["polish.json"])]
+
+
+def test_a_check_output_is_placed_by_its_round_and_place_and_a_file_no_step_writes_is_loose() -> (
+    None
+):
+    """A command's output where the checks publish it (`app/landing/checks_run.py`) is a document
+    of the checks; a name the map knew from `main` that no step of this Lem writes is a working
+    file like any other."""
+    spot = place("checks/r2-3-0123456789ab.log")
+    assert (spot.group, spot.title, spot.role) == (
+        "checks",
+        "Check 3 output, round 2",
+        "doc",
+    )
+    assert place("reports/01-export.md").title == "Report: 01-export"
+    for gone in ("gate/01.log", "ticket.txt", "landing.json", "red.json"):
+        assert place(gone).role == "work", gone
 
 
 def test_the_merge_agents_brief_of_a_tip_on_a_base_is_a_document_of_the_pull_request() -> (

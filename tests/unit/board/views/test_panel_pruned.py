@@ -12,6 +12,7 @@ from lem.board.views.panel.head import head
 from lem.board.views.panel.opened import Opened
 from lem.board.views.panel.panel import panel
 from lem.records.journal.task import StateNoted, Summary
+from lem.records.tickets import Ticket
 from unit.board.views.afternoon import world
 
 if TYPE_CHECKING:
@@ -76,21 +77,36 @@ def test_a_pruned_task_whose_folder_holds_its_small_record_alone_says_what_staye
     assert "ticket" not in said
 
 
-def test_a_pruned_task_with_a_ticket_names_its_files_and_the_number_is_the_settings_of_now(
+def test_a_pruned_task_with_a_ticket_names_it_from_its_record_and_the_number_is_the_settings_of_now(
     tmp_path: Path,
 ) -> None:
     """`main`'s SummarizedBoard.test_a_pruned_task_with_a_ticket_names_its_files_and_the_
-    number_is_the_settings_of_now."""
+    number_is_the_settings_of_now, changed: the ticket and the task it was resumed from are
+    fields of the record, and the files retention keeps beside it are no files left over."""
     afternoon = summarized(
-        world(tmp_path),
-        "ticket.txt",
-        "ticket-repo.txt",
-        "ticket-steps.txt",
-        "resumed-from.txt",
+        world(tmp_path), "sessions.jsonl", "parked.json", "criteria.lock"
     )
-    said = files_said(afternoon, keep_days=7)
+    seen = owed.seen(afternoon, INVOICE)
+    task = msgspec.structs.replace(
+        seen.record.task,
+        ticket=Ticket(tracker="linear", id="SHOP-12"),
+        resumed_from="order-date-first-try",
+    )
+    record = msgspec.structs.replace(seen.record, task=task)
+    kept = msgspec.structs.replace(seen, record=record)
+    tasks = tuple(kept if one is seen else one for one in afternoon.tasks)
+    said = files_said(dataclasses.replace(afternoon, tasks=tasks), keep_days=7)
+    assert said.startswith(
+        "1 file of its folder is still there beside its small record: "
+    )
+    assert "parked.json" not in said
+    without = summarized(world(tmp_path / "again"), "sessions.jsonl", "criteria.lock")
+    seen = owed.seen(without, INVOICE)
+    named = msgspec.structs.replace(seen, record=record)
+    tasks = tuple(named if one is seen else one for one in without.tasks)
+    said = files_said(dataclasses.replace(without, tasks=tasks), keep_days=7)
     assert (
-        "its small record: its state, its request, its pull request, its ticket’s files "
+        "its small record: its state, its request, its pull request, its ticket "
         "and the name of the task it was resumed from."
     ) in said
     assert "after 7 days in which nothing of it happened" in said

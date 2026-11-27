@@ -16,7 +16,7 @@ import msgspec
 from fixtures.board import prose
 from fixtures.board.ended import EXPORT, FOOTER, INVOICE
 from fixtures.board.held import CHECK, FEE, GIFT, STOCK, STOCK_CRITERIA
-from fixtures.board.make import RULES
+from fixtures.board.make import RULES, output_of
 from fixtures.board.moments import TODAY, ago
 from fixtures.board.receipt import RECEIPT
 from fixtures.board.working import CARD, CARD_PROMPT, CART, COUPON, ROUNDING
@@ -115,20 +115,20 @@ FILES = (
         prose.FEE_BREAKER.replace("{slug}", "fee-notice-to-merchants"),
     ),
     ("fee-notice-to-merchants", "handoff.md", prose.FEE_HANDOFF),
-    ("footer-terms-typo", "gate/01.log", "212 passed in 2.9s\n"),
-    ("footer-terms-typo", "gate/02.log", "All checks passed!\n"),
-    ("order-date-on-invoice", "gate/01.log", "214 passed in 3.0s\n"),
-    ("order-date-on-invoice", "gate/02.log", "All checks passed!\n"),
+    ("footer-terms-typo", output_of(1), "212 passed in 2.9s\n"),
+    ("footer-terms-typo", output_of(2), "All checks passed!\n"),
+    ("order-date-on-invoice", output_of(1), "214 passed in 3.0s\n"),
+    ("order-date-on-invoice", output_of(2), "All checks passed!\n"),
     ("footer-terms-typo", "merge-review.md", prose.TYPO_REVIEW),
     ("refund-line-on-receipt", "merge-review.md", prose.MERGE_REVIEW),
     ("refund-line-on-receipt", "task.md", RECEIPT_TASK),
     ("refund-line-on-receipt", "report.md", REPORT),
     (
         "refund-line-on-receipt",
-        "gate/01.log",
+        output_of(1),
         "\x1b[32m....................\x1b[0m\n214 passed in 3.1s\n",
     ),
-    ("refund-line-on-receipt", "gate/02.log", "All checks passed!\n"),
+    ("refund-line-on-receipt", output_of(2), "All checks passed!\n"),
     ("order-date-on-invoice", "task.md", INVOICE_TASK),
     ("why-export-is-slow", "investigation.md", INVESTIGATION),
     ("stock-on-product-page", "criteria.md", STOCK_CRITERIA),

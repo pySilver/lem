@@ -1,24 +1,17 @@
 """The files of a task's folder that the map knows by the form of their name: the merge agent's
-brief of a tip on a base, a breaker's document, a builder's report, a command's output of the
-checks, and the record of the criteria's run on the base."""
+brief of a tip on a base, a breaker's document, a builder's report (`reports/NN-TASK.md`,
+`stages/build.md`), and a command's output of the checks."""
 
 import re
 
-from lem.board.views.artifacts.spots import (
-    BUILD,
-    CHECKS,
-    CRITERIA,
-    CRITERIA_DOC,
-    PR,
-    Spot,
-)
+from lem.board.views.artifacts.spots import BUILD, CHECKS, PR, Spot
 
 BRIEF = re.compile(r"merge-brief-([0-9a-f]+)-([0-9a-f]+)(?:-\d+(?:-\d+)?)?\.md")
 BREAKER = re.compile(r"breaker-(\d+)\.md")
 REPORTS = "reports/"
-GATE = "gate/"
-OUTPUT = re.compile(r"0*(\d+)\.log")
-RED = re.compile(r"red(-.+)?\.json")
+# A command's output as the checks publish it (`app/landing/checks_run.py`): its round, its
+# place in `checks.commands`, and the digest of its bytes.
+OUTPUT = re.compile(r"checks/r(\d+)-(\d+)-[0-9a-f]+\.log")
 # The short form of a commit in the brief's title.
 SHORT = 9
 
@@ -49,25 +42,10 @@ def report(path: str) -> Spot | None:
     return Spot(group=BUILD, title=f"Report: {name}")
 
 
-def gate(path: str) -> Spot | None:
-    """The whole output of a command of the checks, `gate/NN.log`."""
-    if not path.startswith(GATE):
+def check_output(path: str) -> Spot | None:
+    """The whole output of a command of the checks, `checks/rROUND-PLACE-DIGEST.log`."""
+    found = OUTPUT.fullmatch(path)
+    if found is None:
         return None
-    name = path.removeprefix(GATE)
-    found = OUTPUT.fullmatch(name)
-    title = f"Check {found[1]} output" if found else f"Check output: {name}"
-    return Spot(group=CHECKS, title=title)
-
-
-def red(path: str) -> Spot | None:
-    """The record of the criteria's tests run on the base."""
-    if RED.fullmatch(path) is None:
-        return None
-    return Spot(
-        group=CRITERIA,
-        title="Criteria fail on the base (record)",
-        role="record",
-        of=CRITERIA_DOC,
-        label="red on the base",
-        tab=CRITERIA,
-    )
+    round_of, place = found[1], found[2]
+    return Spot(group=CHECKS, title=f"Check {place} output, round {round_of}")

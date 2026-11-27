@@ -41,8 +41,6 @@ if TYPE_CHECKING:
 ENDED = MOMENT + timedelta(days=1)
 LATER = ENDED + timedelta(days=40)
 SMALL = (
-    "ask.txt",
-    "parked.json",
     "session-acts.jsonl",
     "sessions.jsonl",
     "task.json",

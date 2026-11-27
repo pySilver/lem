@@ -31,6 +31,7 @@ from fakes.terminal import FakeTerminal
 from lem.adapters import git_cli
 from lem.app import wiring
 from lem.app.landing import checks_run, frame
+from lem.board import workspaces
 from lem.cli import lazy
 from lem.kernel import files
 from lem.ports.faults import Unanswered
@@ -129,8 +130,13 @@ ONCE = Counter(
 )
 
 
-def test_the_installed_lem_opens_and_reads_a_scratch_task(tmp_path: Path) -> None:
+def test_the_installed_lem_opens_and_reads_a_scratch_task(
+    tmp_path: Path, own_home: Path
+) -> None:
     repo = RealRepo.init(tmp_path / "repo", {".lem/settings.toml": SETTINGS})
+    listed = str(repo.checkout.resolve())
+    # a repository no board command ran in, as after a wipe of Lem's home folder
+    assert listed not in workspaces.listed(own_home)
     executable = Path(sys.prefix) / "bin" / "lem"
     argv = [str(executable), "--repo", str(repo.checkout), "task"]
     env = git_env()
@@ -155,6 +161,8 @@ def test_the_installed_lem_opens_and_reads_a_scratch_task(tmp_path: Path) -> Non
     assert shown["result"]["status"] == "shaping"
     record = tasks.read(repo.checkout / ".lem" / "state", SLUG)
     assert (record.task.ask, record.task.status) == (ask, "shaping")
+    # the open put the main checkout on the list, whose server merges for the task
+    assert workspaces.listed(own_home) == (listed,)
 
 
 class Killed(BaseException):

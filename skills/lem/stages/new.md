@@ -45,6 +45,13 @@ not ended holds, and names that task.
    ```bash
    lem task open SLUG --ask "/lem plan THE OWNER'S WORDS" --plan-only
    ```
+
+   When the ask names the path of one item of the backlog folder, alone or in his words, and asks
+   for that item's work (the path alone, or words that say what the item says is wrong), add
+   `--item PATH`: the record then holds the item, no other task takes it, and the task's branch
+   removes it, so that the merge takes it off the base and off the board. An ask that names an
+   item for other work, as an example or a place to look, takes no `--item`: the item stays, and
+   the pull request says so (`stages/land.md`, step 6).
 4. **Copy the talk**, when he spoke of the request in this conversation. The task's session is no
    fork of this one, so the turns that led to the ask go to it as a file:
 
@@ -417,7 +424,9 @@ queued task").
    ```
 
    For a ticket or an item somebody else wrote, add `request by: someone else`, as step 6 of "The
-   request" says. Steps 1 and 2 come at step 5 of "The request". Then its steps 7 and 8: its
+   request" says. For a task whose record holds a backlog item (`backlog_item` in `lem task show
+   SLUG`), add `item: PATH`, with that path. Steps 1 and 2 come at step 5 of "The request". Then
+   its steps 7 and 8: its
    builder starts as `stages/start.md` says, after the move to `building`; the read of step 8
    printed the first line. There is no lead: the one builder is the fresh builder of the one task, as the owner's rule on a fresh
    builder for each task has it.

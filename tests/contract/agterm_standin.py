@@ -7,8 +7,10 @@ Its parser is as strict as agterm's own: each subcommand takes the options its `
 `msg send`, `msg read`, `pick`, `tree`; and from agterm's reference, 2026-11-27, `zmx tree`,
 `zmx attach` and `restore mode`), the number of arguments it names, and refuses the pairs
 it names as exclusive (`--workspace` with `--workspace-name`, `--after` or `--before`, whose
-anchor carries its own workspace; `--after` with `--before`; `--parent` with either), with exit
-64 as Swift's argument parser gives. `msg send` and `msg read` take no `--window`.
+anchor carries its own workspace; `--after` with `--before`; `--parent` with either; `--url`
+with `--html` or `--cwd`), with exit 64 as Swift's argument parser gives. `msg send` and `msg read`
+take no `--window`. A page to show is refused in agterm's words with exit 1 when its `--url` is
+not http or https, or its `--html` file is not inside its `--cwd`.
 
 A test puts its folder first on the PATH of the place it binds the adapter to, before
 `/usr/bin:/bin` alone, so that no call reaches the owner's real agterm.
@@ -63,7 +65,8 @@ SPEC = {
     ("session", "move"): (WS | {"--target", "--to"}, {"--json"}, 0, 1),
     ("session", "overlay", "open"): (
         WS | {"--url", "--html", "--target", "--cwd"},
-        {"--js", "--companion", "--browse", "--navigation", "--chromeless", "--follow", "--json"},
+        {"--js", "--companion", "--browse", "--navigation", "--chromeless", "--follow",
+         "--persistent", "--json"},
         0, 1),
     ("msg", "send"): ({"--socket", "--to", "--workspace", "--as"}, {"--stdin", "--all", "--json"}, 1, 1),
     ("msg", "read"): ({"--socket", "--timeout", "--as"}, {"--ack", "--wait", "--json"}, 0, 0),
@@ -80,6 +83,7 @@ EXCLUSIVE = {
         ("--workspace", "--workspace-name"), ("--after", "--workspace"),
         ("--before", "--workspace"), ("--after", "--before"), ("--parent", "--workspace"),
         ("--parent", "--after"), ("--parent", "--before")),
+    ("session", "overlay", "open"): (("--url", "--html"), ("--url", "--cwd")),
 }
 STATES = ("idle", "active", "completed", "blocked")
 
@@ -118,6 +122,8 @@ def strict(args):
         refuse("unknown state " + positional[0])
     if "--browse" in given and "--url" not in given:
         refuse("--browse requires --url")
+    if "--persistent" in given and "--url" not in given:
+        refuse("--persistent requires --url")
 
 
 strict(args)
@@ -165,6 +171,22 @@ def failed(error, result=None):
         reply["result"] = result
     print(json.dumps(reply))
     sys.exit(1)
+
+
+# What agterm refuses of a page to show, in its words: an address that is not http or https
+# (lem.log, 2026-11-27, Lem 0.4.0), and a folder of an `--html` page that is the root or that
+# does not hold the file (agterm's reference). The exit, 1, is unmeasured: the log kept the words.
+def shown(args):
+    said = "agtermctl: error: session.overlay.open: "
+    if "--url" in args and not value("--url").startswith(("http://", "https://")):
+        sys.stderr.write(said + "--url must be an absolute http or https URL\n")
+        sys.exit(1)
+    if "--cwd" in args and "--html" in args:
+        folder = os.path.realpath(value("--cwd"))
+        page = os.path.realpath(value("--html"))
+        if folder == "/" or not page.startswith(folder + "/"):
+            sys.stderr.write(said + "the file must be inside --cwd, which is not /\n")
+            sys.exit(1)
 
 
 def holder(pane):
@@ -314,6 +336,7 @@ elif args[:2] == ["session", "rename"]:
     target()["name"] = args[2]
     save()
 elif args[:3] == ["session", "overlay", "open"]:
+    shown(args)
     node = target()
     node.setdefault("pages", []).append(args[3:args.index("--target")])
     save()

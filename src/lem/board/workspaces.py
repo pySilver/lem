@@ -2,10 +2,12 @@
 have in the board's addresses.
 
 The list is the main checkouts the server shows, as absolute paths in the order they came. A
-board command run in a workspace puts it there. A workspace's name is its folder's name in lower
-case, every character but a letter, a digit, `.`, `_` and `-` made `-`; two of one name are
-`NAME-2`, `NAME-3` in the order of the list, so that a name does not move while a checkout is
-away.
+board command run in a workspace puts it there, and so does each command that makes a task wait
+for this machine's server (`cli/listing.py`). A write that fails is a refusal: a workspace the
+list lacks gets no duty of the server, and nothing else would say so. A workspace's name is its
+folder's name in lower case, every character but a letter, a digit, `.`, `_` and `-` made `-`;
+two of one name are `NAME-2`, `NAME-3` in the order of the list, so that a name does not move
+while a checkout is away.
 """
 
 import re
@@ -57,15 +59,24 @@ def noted(home: Path, folder: Path) -> places.Workspace | None:
 
 
 def changed(home: Path, path: str, *, add: bool) -> bool:
-    """Put `path` on the list, or take it out; whether the list changed."""
+    """Put `path` on the list, or take it out; whether the list changed. Refused when the
+    list cannot be written."""
     folders.home_marked(home)
-    with locks.held(home / LOCK):
-        before = listed(home)
-        after = tuple(one for one in before if one != path)
-        if add:
-            after = before if path in before else (*after, path)
-        if after != before:
-            files.write_whole(home / WORKSPACES, msgspec.json.encode(after))
+    target = home / WORKSPACES
+    try:
+        with locks.held(home / LOCK):
+            before = listed(home)
+            after = tuple(one for one in before if one != path)
+            if add:
+                after = before if path in before else (*after, path)
+            if after != before:
+                files.write_whole(target, msgspec.json.encode(after))
+    except OSError as error:
+        raise Refusal(
+            "workspaces-write",
+            f"the list of workspaces {target} could not be written: {error}",
+            f"make {home} writable for the owner, then run the command again",
+        ) from error
     return after != before
 
 

@@ -1,12 +1,10 @@
-"""The rest of a task's folder on the map: a page at its top, the pictures, the ladder's notes,
-and every file the map does not know, in its folder among the working files; and the one rule
-that places any path."""
+"""The rest of a task's folder on the map: a page at its top, the pictures, and every file the map
+does not know, in its folder among the working files; and the one rule that places any path."""
 
 from lem.board.views.artifacts import named, reviewed
 from lem.board.views.artifacts.spots import MEDIA_FOLDER, PR, WORK, Spot, known
 
 PAGES = frozenset(("html", "htm"))
-LADDER = "ladder/"
 
 
 def page(path: str) -> Spot | None:
@@ -18,13 +16,11 @@ def page(path: str) -> Spot | None:
 
 
 def folder(path: str) -> Spot | None:
-    """A picture of `media/` or a note of the ladder, among the working files."""
-    for prefix, name in ((MEDIA_FOLDER, "Pictures"), (LADDER, "The ladder's notes")):
-        if path.startswith(prefix):
-            return Spot(
-                group=WORK, title=path.removeprefix(prefix), role="work", folder=name
-            )
-    return None
+    """A picture of `media/`, among the working files."""
+    if not path.startswith(MEDIA_FOLDER):
+        return None
+    title = path.removeprefix(MEDIA_FOLDER)
+    return Spot(group=WORK, title=title, role="work", folder="Pictures")
 
 
 def loose(path: str) -> Spot:
@@ -39,8 +35,7 @@ RULES = (
     named.brief,
     named.breaker,
     named.report,
-    named.gate,
-    named.red,
+    named.check_output,
     reviewed.review,
     reviewed.archive,
     reviewed.run,

@@ -638,7 +638,7 @@ def test_checks_only_link_to_a_log_when_the_input_has_one() -> None:
     board = task(shows="checks", checks=tab)
     assert (
         board.one(id_="gate-0").one(tag="a").attrs["href"]
-        == f"{REFUND}/artifacts/gate/01.log/"
+        == f"{REFUND}/artifacts/checks/r1-1-000000000001.log/"
     )
     assert not board.one(id_="gate-1").all(tag="a")
 

@@ -49,7 +49,7 @@ lem task resume SLUG
   `lem prune` folded into one summary entry past `state.keep_days`: its approved criteria, the
   personas' read and its decisions went with it, so the command refuses before it makes
   anything, and its message ends with the line of the new ask, `/lem` and the dropped task's ask
-  (`ask.txt`), which you give the owner. The plan comes with the branch under
+  (`ask` in `lem task show SLUG`), which you give the owner. The plan comes with the branch under
   the old slug's name: `lem task plan-file SLUG-2` gives it as `found`, and `lem criteria show
   SLUG-2` reads it, until its lead writes a plan of the new name.
 - **A dropped task the release stop blocked** (dropped from the hold `release`) needs no

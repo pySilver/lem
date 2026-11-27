@@ -7,7 +7,7 @@ waits for you.
 ## Falling asleep
 
 Let the recent work come back to you first, the way a day replays when you lie down. It is all
-here. Under `tasks/`, each task has what the owner asked for (`ask.txt`, `task.md`) and how it
+here. Under `tasks/`, each task has what the owner asked for (`task.md`, and `ask` in `task.json`) and how it
 went (`task.json`: its days in order, the decisions taken on the way, the checks that went red and
 the reviews). A recent one also keeps its `report.md`; an old task that ended has faded to one
 line of its days. Drift through whichever of them you like, as much or as little as you like. You are not

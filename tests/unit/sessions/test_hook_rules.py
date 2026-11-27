@@ -251,21 +251,29 @@ def test_a_correction_has_the_keys_msgspec_writes_for_its_struct() -> None:
     assert json.loads(msgspec.json.encode(decoded)) == json.loads(body)
 
 
-def test_the_server_starts_in_a_repository_of_lem_unless_it_is_off(
+def test_the_server_starts_for_the_main_checkout_of_a_repository_of_lem_unless_it_is_off(
     tmp_path: Path,
 ) -> None:
     repo = tmp_path / "repo"
     (repo / ".git").mkdir(parents=True)
     event: dict[str, object] = {"cwd": str(repo)}
-    assert serve.wanted(event, {}) is False
+    assert serve.wanted(event, {}) is None
     (repo / ".lem" / "state").mkdir(parents=True)
     (repo / ".lem" / "settings.toml").write_text("")
     (repo / ".lem" / "state" / "events.jsonl").write_text("")
-    assert serve.wanted(event, {}) is False
+    assert serve.wanted(event, {}) is None
     (repo / ".lem" / "state" / folders.MARKER).write_bytes(folders.FORM)
-    assert serve.wanted(event, {}) is True
-    assert serve.wanted(event, {"LEM_SERVE": "off"}) is False
-    assert serve.wanted({}, {"CLAUDE_PROJECT_DIR": str(repo)}) is True
+    main = str(repo.resolve())
+    assert serve.wanted(event, {}) == main
+    assert serve.wanted(event, {"LEM_SERVE": "off"}) is None
+    assert serve.wanted({}, {"CLAUDE_PROJECT_DIR": str(repo)}) == main
+    worktree = repo / ".lem" / "worktrees" / "fix-the-login"
+    (repo / ".git" / "worktrees" / "fix-the-login").mkdir(parents=True)
+    (repo / ".git" / "worktrees" / "fix-the-login" / "commondir").write_text("../..\n")
+    worktree.mkdir(parents=True)
+    gitdir = repo / ".git" / "worktrees" / "fix-the-login"
+    (worktree / ".git").write_text(f"gitdir: {gitdir}\n")
+    assert serve.wanted({"cwd": str(worktree)}, {}) == main
 
 
 def test_the_state_after_a_compaction_reads_past_a_record_it_does_not_know(
