@@ -7,12 +7,15 @@ careful: no, because no task reaches a topic of `flow.topics`: the change is wha
 Size: full, because the fix reverses a choice of commit d0c19d29 that a browser test holds, and it touches the board's script, the page's style and the server's close of a session's page.
 
 1. The board where the owner answers a card closes the card and shows the same "taken" line as every other board. Example: the owner presses "Send answers" on the card "Approve the criteria?" of task `board-views-tight-like-linear` on his computer's board; that board then shows the "taken" line in place of the card, with no "Send answers" button, as his phone's board does.
+   - test: `.venv/bin/python -I -B tests --level browser tests/browser/test_cards.py::test_the_board_that_took_the_answer_closes_the_card tests/browser/test_cards.py::test_an_answer_on_one_board_replaces_the_open_card_on_the_other` in `tests/browser/test_cards.py`
 2. A line that a page shows after an answer stands on a background of its own and is readable over the text under it. Example: "Answer sent — you can close this tab." in a browser tab of `lem ask`, and any such line on the board, have a background that is not transparent.
+   - test: `.venv/bin/python -I -B tests --level browser tests/browser/test_cards.py::test_the_line_after_an_answer_has_a_background_of_its_own tests/browser/test_cards.py::test_the_line_after_an_answer_takes_the_page_s_ground_in_light_and_dark` in `tests/browser/test_cards.py`
 3. After the owner answers a card on the board, the task's session closes its page for that card, also when no wait for it runs. Example:
    1. A session asks "Approve the criteria?" at 10:00.
    2. Its wait ends at 10:09 with `pending`.
    3. The owner answers on the board at 10:30.
    4. The page in the session closes at 10:30, with no step of the session's agent.
+   - test: `.venv/bin/python -I -B tests --level unit tests/unit/ask/test_card.py::test_a_board_answer_closes_the_page_when_no_wait_runs tests/unit/ask/test_card.py::test_the_board_closes_the_page_by_its_id_wherever_its_file_is` in `tests/unit/ask/test_card.py`
 
 ## How it works
 
