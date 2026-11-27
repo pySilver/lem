@@ -14,6 +14,8 @@ the ports of the test and the fake terminal.
 import os
 from typing import TYPE_CHECKING
 
+import pytest
+
 from fakes.repo import run_git
 from fakes.terminal import FakeTerminal
 from journeys.test_feature_parts import (
@@ -31,8 +33,9 @@ from journeys.test_feature_parts import (
     shaped,
     worktree,
 )
-from journeys.test_skeleton import lem
+from journeys.test_skeleton import Killed, lem
 from lem.app.sessions import acts, log
+from lem.app.tasks import sync_checks
 from lem.board.duties import context, sync
 from lem.board.duties.context import Duty
 from lem.board.duties.memory import Kept
@@ -41,12 +44,13 @@ from lem.ports.terminal import Pane
 from lem.store import places, tasks
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
-
-    import pytest
 
     from journeys.test_feature_parts import Capsys
     from journeys.test_skeleton import World
+    from lem.app.tasks.sync_frame import Sync
+    from lem.records.landing.checks import Outcome
 
 PART = "notes-say-hello"
 ON_MAIN = "main-has-notes"
@@ -192,17 +196,26 @@ def test_a_conflicting_sync_stops_with_its_files_and_pushes_nothing(
     again = lem(capsys, world.checkout, "task", "sync", FEATURE)
     assert again["refusal"]["code"] == "dirty", again
 
-    # a builder resolves the conflict and commits the merge; the sync pushes it
+    # a builder resolves the conflict and commits the merge, and a part merges meanwhile:
+    # the resolution, which carries the sync's subject, is a builder's and stays
     tree = worktree(world, FEATURE)
     (tree / "README.md").write_text("The feature and main say receive.\n")
     run_git(tree, "add", "--all")
     run_git(tree, "commit", "--quiet", "--no-edit")
     resolved = run_git(tree, "rev-parse", "HEAD")
-    synced = ok(capsys, world, "task", "sync", FEATURE)["result"]
-    assert (synced["pushed"], synced["head"], synced["merge"]) == (True, resolved, None)
-    assert world.repo.head_of(FEATURE_BRANCH) == resolved
-    parents = run_git(world.repo.origin, "rev-list", "--parents", "-n", "1", resolved)
+    parents = run_git(tree, "rev-list", "--parents", "-n", "1", resolved)
     assert parents.split()[1:] == [before, base]
+    part = world.repo.outside_commit(FEATURE_BRANCH, {"NOTES.md": b"Hello.\n"})
+    apart = lem(capsys, world.checkout, "task", "sync", FEATURE)
+    assert apart["refusal"]["code"] == "diverged", apart
+    assert run_git(tree, "rev-parse", "HEAD") == resolved
+
+    run_git(tree, "merge", "--quiet", "--no-edit", f"origin/{FEATURE_BRANCH}")
+    synced = ok(capsys, world, "task", "sync", FEATURE)["result"]
+    assert (synced["pushed"], synced["before"], synced["merge"]) == (True, part, None)
+    assert world.repo.head_of(FEATURE_BRANCH) == synced["head"]
+    on_origin = run_git(world.repo.origin, "show", f"{FEATURE_BRANCH}:README.md")
+    assert on_origin == "The feature and main say receive."
 
 
 def test_a_red_check_on_the_merge_pushes_nothing_until_a_builder_repairs_it(
@@ -232,3 +245,124 @@ def test_a_red_check_on_the_merge_pushes_nothing_until_a_builder_repairs_it(
     assert (synced["pushed"], synced["merge"]) == (True, None)
     assert world.repo.head_of(FEATURE_BRANCH) == synced["head"]
     assert run_git(world.repo.origin, "rev-parse", f"{synced['head']}^") == merge
+
+
+def after_checks(
+    monkeypatch: pytest.MonkeyPatch, act: Callable[[int], None]
+) -> list[int]:
+    """Each run of the sync's checks, counted, with `act` after each, given its number: what
+    happens between the checks and the push."""
+    real = sync_checks.checked
+    runs: list[int] = []
+
+    def checked(sync: Sync) -> tuple[Outcome, ...]:
+        outcomes = real(sync)
+        runs.append(len(runs) + 1)
+        act(runs[-1])
+        return outcomes
+
+    monkeypatch.setattr(sync_checks, "checked", checked)
+    return runs
+
+
+def behind_main(capsys: Capsys, world: World) -> str:
+    """The feature `x` with one part open, and a teammate's commit on origin's `main` that
+    its branch lacks; that commit."""
+    started(capsys, world, {"FEATURE.md": "The feature.\n"})
+    ok(capsys, world, "task", "open", PART, "--ask", "a part", "--part-of", FEATURE)
+    return world.repo.outside_commit("main", {"MAIN.md": b"Main.\n"})
+
+
+def part_merged(world: World, number: int) -> None:
+    """A part's merge into the feature's branch on origin, as GitHub makes it."""
+    world.repo.outside_commit(FEATURE_BRANCH, {f"PART-{number}.md": b"part\n"})
+
+
+def test_a_part_merged_under_the_push_takes_the_merge_back_and_the_sync_again(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    base = behind_main(capsys, world)
+
+    def once(number: int) -> None:
+        if number == 1:
+            part_merged(world, 1)
+
+    runs = after_checks(monkeypatch, once)
+
+    synced = ok(capsys, world, "task", "sync", FEATURE)["result"]
+    assert runs == [1, 2]
+    moved = world.repo.head_of(FEATURE_BRANCH)
+    assert moved is not None
+    assert moved == synced["head"] == synced["merge"]
+    parents = run_git(world.repo.origin, "rev-list", "--parents", "-n", "1", moved)
+    first = parents.split()[1]
+    assert parents.split()[2:] == [base]
+    assert run_git(world.repo.origin, "show", f"{first}:PART-1.md") == "part"
+    assert synced["before"] == first
+    assert run_git(worktree(world, FEATURE), "rev-parse", "HEAD") == moved
+
+
+def test_a_branch_that_moves_under_every_push_ends_the_sync_after_its_tries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    behind_main(capsys, world)
+    runs = after_checks(monkeypatch, lambda number: part_merged(world, number))
+
+    ended = lem(capsys, world.checkout, "task", "sync", FEATURE)
+    assert ended["refusal"]["code"] == "lease", ended
+    assert runs == [1, 2, 3]
+    third = run_git(world.repo.origin, "rev-parse", f"{FEATURE_BRANCH}^")
+    tree = worktree(world, FEATURE)
+    # each try took its own merge back: the worktree is where the third try began
+    assert run_git(tree, "rev-parse", "HEAD") == third
+    assert run_git(tree, "status", "--porcelain") == ""
+
+
+def test_a_push_git_refuses_for_another_reason_ends_the_sync_at_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    behind_main(capsys, world)
+    before = world.repo.head_of(FEATURE_BRANCH)
+    hook = world.checkout / ".git" / "hooks" / "pre-push"
+    hook.parent.mkdir(parents=True, exist_ok=True)
+    hook.write_text("#!/bin/sh\necho 'pushes wait for review' >&2\nexit 1\n")
+    hook.chmod(0o755)
+    runs = after_checks(monkeypatch, lambda _number: None)
+
+    refused = lem(capsys, world.checkout, "task", "sync", FEATURE)
+    assert refused["refusal"]["code"] == "git", refused
+    assert "push" in refused["refusal"]["why"]
+    assert runs == [1]
+    assert world.repo.head_of(FEATURE_BRANCH) == before
+
+
+def test_a_sync_cut_before_its_push_drops_its_own_merge_once_a_part_merged(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    base = behind_main(capsys, world)
+    tree = worktree(world, FEATURE)
+
+    def cut(number: int) -> None:
+        if number == 1:
+            raise Killed("push")
+
+    after_checks(monkeypatch, cut)
+    with pytest.raises(Killed):
+        lem(capsys, world.checkout, "task", "sync", FEATURE)
+    lost = run_git(tree, "rev-parse", "HEAD")
+    assert lost != world.repo.head_of(FEATURE_BRANCH)
+    part_merged(world, 1)
+
+    synced = ok(capsys, world, "task", "sync", FEATURE)["result"]
+    moved = world.repo.head_of(FEATURE_BRANCH)
+    assert moved is not None
+    assert (synced["pushed"], synced["head"]) == (True, moved)
+    parents = run_git(world.repo.origin, "rev-list", "--parents", "-n", "1", moved)
+    assert parents.split()[2:] == [base]
+    assert parents.split()[1] == synced["before"] != lost
+    listed = run_git(world.repo.origin, "rev-list", moved)
+    assert lost not in listed.split()

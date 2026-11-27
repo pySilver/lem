@@ -9,6 +9,8 @@ from msgspec.structs import replace
 
 from lem.app.landing import merge_lock
 from lem.app.tasks import sync_checks, sync_tip
+from lem.model.task import sync_stops
+from lem.ports.git_facts import LEASE
 from lem.records.base import Frozen, Sha
 from lem.records.landing.checks import Outcome
 
@@ -35,11 +37,14 @@ class Synced(Frozen, frozen=True, kw_only=True, omit_defaults=False):
 
 def published(sync: Sync, found: Synced, prior: Sha) -> Synced | None:
     """The checks on the merge and its push; None, with the sync's own merge taken back to
-    `prior`, when origin's branch moved under the push."""
+    `prior`, when origin's branch moved under the push. Any other refusal of the push (a hook,
+    a rule of the forge, the credentials) is git's, and the sync stops on it."""
     outcomes = sync_checks.checked(sync)
     sent = pushed(sync, found)
     if isinstance(sent, str):
         return replace(found, head=sent, pushed=True, checks=outcomes)
+    if not sent.said.startswith(LEASE):
+        raise sync_stops.refused(sync.place, "push", sent.said)
     sync_tip.undone(sync, prior, found.merge)
     return None
 
