@@ -11,12 +11,13 @@
 `Size` names the track, `full` or `small`, with the reason after `because`. The criteria are
 numbered 1, 2, 3 in order; under each come the steps of its case, its chart in a `mermaid` block,
 and then its tests, or `- no test: REASON`. A chart of several criteria goes under
-`## How it works`, after the section. A section that does not have this form is refused with the
-line.
+`## How it works`, after the section. The criteria of a feature go under a `### ` heading for each
+of its parts and `### The whole feature` (`headings.py`). A section that does not have this form is
+refused with the line.
 """
 
 from lem.kernel.errors import Refusal
-from lem.model.criteria import digest, lines, section
+from lem.model.criteria import digest, headings, lines, section
 from lem.model.criteria.draft import Draft, charted, taken
 from lem.model.criteria.layout import Layout, layout_of
 from lem.records.approvals import Size
@@ -60,6 +61,13 @@ def refused(draft: Draft, name: str) -> Refusal | None:
             f"{name}: a task on the fast track has one criterion, and this one has "
             f"{len(found)}",
             "the task takes the standard track: Size: full, because WHY",
+        )
+    empty = headings.bare(draft.headings, len(found), draft.before)
+    if empty is not None:
+        return Refusal(
+            lines.CODE,
+            f"{name}: the heading {empty!r} has no criterion under it",
+            "each heading has a criterion under it",
         )
     both = [one.number for one in found if one.tests and one.no_test]
     if both:

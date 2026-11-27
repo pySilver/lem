@@ -294,3 +294,78 @@ def test_a_dropped_part_cleans_after_its_feature_was_dropped_too(
     assert cleaned["branch_gone"] is True, cleaned
     assert not worktree(world, FIRST).exists()
     assert record_of(world, FIRST)["task"]["status"] == "dropped"
+
+
+SPLIT = """## Acceptance criteria
+
+Size: full, because the README and the notes change, in three parts.
+
+### readme-says-receive: the README says receive
+
+1. The README says receive, not recieve.
+
+### notes-say-hello: the notes say hello
+
+2. The notes say hello.
+
+### changes-say-two: the changes name both (independent)
+
+3. The changes name the README and the notes.
+
+### The whole feature
+
+4. The README and the notes agree.
+"""
+THREE = (FIRST, SECOND, "changes-say-two")
+
+
+def approved_feature(capsys: Capsys, world: World) -> str:
+    """The feature `x`, shaping, its criteria read by the personas and approved by the owner;
+    the path of its criteria."""
+    ok(capsys, world, "task", "open", FEATURE, "--ask", "the docs, in three parts")
+    words = ("--type", "docs", "--why", "the docs", "--track", "full")
+    ok(capsys, world, "task", "read", FEATURE, *words, "--then", "interview")
+    path = world.written("criteria.md", SPLIT)
+    told = ok(capsys, world, "criteria", "digest", FEATURE, "--file", path)
+    read = ("done", "--by", "lem", "--asked", "2", "--answered", "2")
+    families = ("--family", "opus", "--family", "sol", "--criteria", "4")
+    marked = ("--flagged", "0", "--digest", told["result"]["digest"])
+    ok(capsys, world, "criteria", "read", FEATURE, *read, *families, *marked)
+    ok(capsys, world, "criteria", "approve", FEATURE, "--file", path)
+    return path
+
+
+def test_a_split_of_three_headings_ends_with_three_parts_and_the_feature_queued(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    base = world.repo.head_of("main")
+    assert base is not None
+    path = approved_feature(capsys, world)
+    done = ok(capsys, world, "task", "split", FEATURE, "--file", path)["result"]
+    assert [(part["slug"], part.get("after", [])) for part in done["parts"]] == [
+        (FIRST, []),
+        (SECOND, [FIRST]),
+        ("changes-say-two", []),
+    ]
+    assert done["starts"] == [FIRST, "changes-say-two"]
+    # feature/x is on origin, cut from main, and the feature waits for its three parts
+    assert world.repo.head_of(FEATURE_BRANCH) == base
+    feature_task = record_of(world, FEATURE)["task"]
+    assert (feature_task["status"], feature_task["after"]) == ("queued", list(THREE))
+    assert feature_task["shape"]["then"] == "lead"
+    for slug in THREE:
+        part = record_of(world, slug)["task"]
+        assert part["part_of"] == FEATURE
+        assert len(part["criteria"]["approvals"]) == 1
+    # a second run makes nothing
+    again = ok(capsys, world, "task", "split", FEATURE, "--file", path)["result"]
+    assert [part.get("made", False) for part in again["parts"]] == [False] * 3
+    # the first part is cut from the feature's branch
+    ok(capsys, world, "task", "worktree", FIRST)
+    assert record_of(world, FIRST)["task"]["branch"] == f"docs/{FIRST}"
+    assert (
+        run_git(worktree(world, FIRST), "merge-base", "--is-ancestor", base, "HEAD")
+        == ""
+    )
+    assert world.repo.head_of(f"docs/{FIRST}") is None

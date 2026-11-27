@@ -95,6 +95,28 @@
             }
           ]
         },
+        "split": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            },
+            "--file": {
+              "aliases": [],
+              "value": true,
+              "required": true
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
         "dir": {
           "options": {
             "--help": {

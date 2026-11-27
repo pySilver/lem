@@ -4,6 +4,7 @@ from lem.cli.group import LazyGroup
 
 VERBS = (
     ("open", "lem.cli.task.open"),
+    ("split", "lem.cli.task.split"),
     ("dir", "lem.cli.task.dir"),
     ("worktree", "lem.cli.task.worktree"),
     ("plan-file", "lem.cli.task.plan_file"),

@@ -12,7 +12,9 @@ class CriterionTest(Frozen, frozen=True, kw_only=True):
 
 class Criterion(Frozen, frozen=True, kw_only=True):
     """A criterion: its number, its sentence, the steps of its case, its chart, and its tests,
-    or why it has none (both together are refused)."""
+    or why it has none (both together are refused); and in the criteria of a feature, the
+    heading of the part it belongs to, None for the group of the whole feature. A task with no
+    parts writes no `part`, so the marks of its criteria are what they were without the key."""
 
     number: int
     text: str
@@ -20,3 +22,4 @@ class Criterion(Frozen, frozen=True, kw_only=True):
     chart: str | None = None
     tests: tuple[CriterionTest, ...] = ()
     no_test: str | None = None
+    part: str | None = None
