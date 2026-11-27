@@ -86,7 +86,7 @@ PLANNOTATOR_TUI = Tool(
 # and no step of a task fails.
 PLANNOTATOR = Tool(
     name="plannotator",
-    need=RECOMMENDED,
+    need=OPTIONAL,
     used_for=(
         "the Inbox carries what waits for the owner while he is away, to his phone too, "
         "and brings his answer back into the task's session"

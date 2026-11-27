@@ -11,7 +11,7 @@ including code blocks.
 
 - `flow.md` has 913 words.
 - `install.md` has 889 words.
-- `merge.md` has 883 words.
+- `merge.md` has 888 words.
 - `board.md` has 847 words.
 - `when-lem-needs-you.md` has 810 words.
 

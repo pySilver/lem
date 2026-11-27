@@ -188,14 +188,14 @@ def test_codex_gets_a_row_for_the_persona_agent_whose_absence_fails_nothing(
     assert agents.codex_rows(stage.look())[1].found
 
 
-def test_plannotator_is_recommended_with_its_guide_and_the_version_found(
+def test_plannotator_is_optional_with_its_guide_and_the_version_found(
     stage: Stage,
 ) -> None:
     stage.tool("plannotator", "plannotator 0.29.0")
     row = tool_row(stage.look(), tool_words.PLANNOTATOR)
     assert (row.name, row.need, row.found, row.detail) == (
         "plannotator",
-        "recommended",
+        "optional",
         True,
         "plannotator 0.29.0",
     )
@@ -207,7 +207,7 @@ def test_without_plannotator_the_row_says_that_nothing_goes_to_the_inbox(
     stage: Stage,
 ) -> None:
     row = tool_row(stage.look(), tool_words.PLANNOTATOR)
-    assert (row.need, row.found, row.detail) == ("recommended", False, None)
+    assert (row.need, row.found, row.detail) == ("optional", False, None)
     assert (row.without_it or "").startswith("nothing goes to the Inbox")
 
 

@@ -17,8 +17,10 @@ you are there. A task of `/lem night` always runs without you, to its pull reque
 
 ## Answer from the Inbox
 
-While you are away, each thing that waits for you also goes to the
-[Plannotator](https://github.com/backnotprop/plannotator) Inbox on this computer. Each task has a
+This part is optional. It works only when the
+[Plannotator](https://github.com/backnotprop/plannotator) Inbox runs on this computer, and Lem
+works the same without it. While you are away, each thing that waits for you then also goes to the
+Inbox. Each task has a
 thread there with its name. A question there has the same answers as the card in the session of the
 task. On your phone, the page of the task on the [board](phone.md) links to the thread.
 

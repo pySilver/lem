@@ -250,7 +250,7 @@ doctor:load gate	changed	unit.settings.doctor.test_machine.test_the_load_gate_is
 doctor:mailbox-chat	kept	unit.settings.doctor.test_tools.test_the_review_tool_alone_is_not_enough_and_no_agterm_skill_row_without_agterm	
 doctor:mailbox-chat skill	kept	unit.settings.doctor.test_tools.test_the_review_tool_alone_is_not_enough_and_no_agterm_skill_row_without_agterm	
 doctor:permission mode	kept	unit.settings.doctor.test_project.test_lem_assumes_auto_mode_and_a_mode_counts_from_the_nearest_file	
-doctor:plannotator	kept	unit.settings.doctor.test_tools.test_plannotator_is_recommended_with_its_guide_and_the_version_found	
+doctor:plannotator	kept	unit.settings.doctor.test_tools.test_plannotator_is_optional_with_its_guide_and_the_version_found	
 doctor:plannotator-tui	kept	unit.settings.doctor.test_tools.test_plannotator_tui_is_recommended_with_its_guide	
 doctor:project personas	changed	unit.settings.doctor.test_project.test_a_lem_repository_with_no_personas_or_one_gets_its_row_and_no_other_place_does	counts the persona files of the main checkout's .lem/personas (each .md but README.md) instead of asking lem cast, which addons-outside builds; a worktree older than the cast still finds it, but the default branch's cast is not read
 doctor:python3	kept	unit.settings.doctor.test_tools.test_the_python_row_names_the_apps_own_interpreter	
@@ -271,7 +271,7 @@ unit:tests/unit/test_doctor.py:Installs.test_an_install_for_the_user_counts_wher
 unit:tests/unit/test_doctor.py:Keymap.test_a_line_runs_the_command_by_its_path_a_link_or_from_home	kept	unit.settings.doctor.test_picker.test_a_line_runs_the_command_by_its_path_a_link_or_from_home	
 unit:tests/unit/test_doctor.py:Keymap.test_homebrews_opt_path_when_the_app_is_under_it	kept	unit.settings.doctor.test_picker.test_homebrews_opt_path_when_the_app_is_under_it	
 unit:tests/unit/test_doctor.py:Keymap.test_the_row_gives_the_line_and_names_an_old_line_that_no_longer_works	kept	unit.settings.doctor.test_picker.test_the_row_gives_the_line_and_names_an_old_line_that_no_longer_works	
-unit:tests/unit/test_doctor.py:Plannotator.test_the_row_is_recommended_with_its_guide_and_names_the_version_found	kept	unit.settings.doctor.test_tools.test_plannotator_is_recommended_with_its_guide_and_the_version_found	
+unit:tests/unit/test_doctor.py:Plannotator.test_the_row_is_recommended_with_its_guide_and_names_the_version_found	kept	unit.settings.doctor.test_tools.test_plannotator_is_optional_with_its_guide_and_the_version_found	
 unit:tests/unit/test_doctor.py:Plannotator.test_without_it_the_row_says_that_nothing_goes_to_the_inbox	kept	unit.settings.doctor.test_tools.test_without_plannotator_the_row_says_that_nothing_goes_to_the_inbox	
 unit:tests/unit/test_doctor.py:PluginFolder.test_the_install_for_the_repository_then_for_the_user_else_the_apps	kept	unit.settings.doctor.test_hooks.test_the_plugin_is_the_install_for_the_repository_then_for_the_user_else_the_apps	
 unit:tests/unit/test_doctor.py:Tiers.test_the_install_guide_says_each_tools_tier_as_the_machine_check_has_it	kept	unit.settings.doctor.test_command.test_the_install_guide_says_each_tools_tier_as_the_machine_check_has_it	the tiers are read from the rows of a machine with every tool, not from the source; docs/install.md is guides' to rewrite, and the test reads it as it is
@@ -279,7 +279,7 @@ check:tests/lem-machine.sh:a-builder-file-in-the-home-is-not-lem-s-with-c0ebbea5
 check:tests/lem-machine.sh:a-list-of-plugins-in-an-unknown-shape-or-an-5b57dce0bf233cb0	kept	unit.settings.doctor.test_tools.test_a_plugin_list_of_another_shape_is_no_answer_and_the_cache_counts	
 check:tests/lem-machine.sh:a-machine-with-claude-code-and-no-lem-builde-c92529a3c28fa85d	kept	unit.settings.doctor.test_tools.test_claude_code_without_the_builder_fails_and_a_builder_file_in_the_home_is_not_lems	
 check:tests/lem-machine.sh:a-machine-with-codex-gets-a-row-for-the-agen-8a434a26e401b62b	kept	unit.settings.doctor.test_tools.test_codex_gets_a_row_for_the_persona_agent_whose_absence_fails_nothing	
-check:tests/lem-machine.sh:a-machine-with-plannotator-has-its-row-found-79bc52806651ec27	kept	unit.settings.doctor.test_tools.test_plannotator_is_recommended_with_its_guide_and_the_version_found	
+check:tests/lem-machine.sh:a-machine-with-plannotator-has-its-row-found-79bc52806651ec27	kept	unit.settings.doctor.test_tools.test_plannotator_is_optional_with_its_guide_and_the_version_found	
 check:tests/lem-machine.sh:a-plugin-loaded-for-one-session-by-a-flag-sa-2c421aca251a8102	kept	unit.settings.doctor.test_tools.test_a_plugin_loaded_by_a_flag_counts_through_claude_plugin_root	
 check:tests/lem-machine.sh:a-settings-file-that-also-holds-the-hook-bes-47ba68a56b2ae72d	kept	unit.settings.doctor.test_hooks.test_a_settings_file_that_also_holds_the_hook_beside_lems_plugin_is_named	
 check:tests/lem-machine.sh:agterm-without-its-skill-fails-the-check-and-749b24829323148c	kept	unit.settings.doctor.test_tools.test_agterm_without_its_skill_fails_and_says_outside_a_session	
