@@ -1,12 +1,12 @@
 """The line of what the backlog holds (`board_pages.backlog_page` on `main`): `2 items in
-docs/backlog · 3 of the reviewer in .lem/state/backlog, 1 undecided · read 16:00`, with how many
+docs/backlog · 2 of the reviewer in .lem/state/backlog, 1 undecided · read 16:00`, with how many
 items cannot be read when some cannot."""
 
 from typing import TYPE_CHECKING
 
 from lem.board.inputs.clock import stamp
 from lem.board.inputs.names import plural
-from lem.board.views.backlog import groups
+from lem.board.views.backlog import counts, groups
 
 if TYPE_CHECKING:
     from lem.board.views.backlog_read import Shelved
@@ -26,9 +26,8 @@ def summary_of(world: World, records: tuple[Record, ...]) -> str:
 
 
 def holding(shelved: Shelved, records: tuple[Record, ...]) -> str:
-    """How many items the backlog folder holds, and how many of the reviewer's, with how
-    many of those no task holds."""
-    found = shelved.entries
+    """How many items count as work in each folder, with how many are undecided."""
+    found = counts.work_entries(shelved)
     theirs = sum(1 for entry in found if entry.reviewer)
     mine = plural(len(found) - theirs, "item")
     folder = f"{mine} in {shelved.folder}"

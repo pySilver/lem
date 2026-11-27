@@ -70,14 +70,15 @@ nothing. Only the first answer counts.
 
 ## The reviewer's items
 
-The night and the retro write what they find as proposals. Each morning, a reviewer agent reads
-them. It puts the proposals that pass into backlog items, one item for each area. Each proposal that
-it refutes goes into an item with `worth: no` and its reason. These items are in
-`.lem/state/backlog/`, which git ignores. **Backlog** shows the items that passed first, and the
-refuted items under "Decided against".
+Each morning, a reviewer reads proposals from the night and the retro.
+The reviewer writes one backlog item per area for proposals that pass.
+It records each refuted proposal as `worth: no` with its reason.
+Git ignores `.lem/state/backlog/`, which holds these items.
+**Backlog** shows the items that passed first. It shows refuted items under "Decided against".
 
-- An item that passed and that no task builds is "undecided". The **Backlog** key shows the
-  number of undecided items.
+- The **Backlog** key and the page totals by folder exclude items with `worth: no`.
+  The **Decided against** chip counts these items.
+- An item that passed and that no task builds is "undecided".
 - **Start a task** opens a task for the item. The item leaves the backlog when the task merges, and
   it is undecided again when you drop the task.
 - **Drop** removes the item at once, and no later reviewer passes that proposal again. While a task

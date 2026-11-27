@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 def test_the_frame_of_the_afternoons_page_tasks_is_todays(tmp_path: Path) -> None:
     seen = world(tmp_path)
-    made = framed(seen, Beside(backlog=1))
+    made = framed(seen, Beside(backlog=4))
     assert made.head == frame.FRAME.head
     assert made.phonebar == frame.FRAME.phonebar
     assert made.topbar == frame.FRAME.topbar

@@ -183,7 +183,7 @@ def chip(
 
 BACKLOG = Backlog(
     summary=(
-        "2 items in docs/backlog · 3 of the reviewer in .lem/state/backlog, 1 undecided · "
+        "2 items in docs/backlog · 2 of the reviewer in .lem/state/backlog, 1 undecided · "
         "read 16:00"
     ),
     read_again=f"{BASE}/backlog?read=1",
