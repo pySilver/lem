@@ -10,7 +10,14 @@ import json
 import time
 from typing import TYPE_CHECKING
 
-from hooks.claude_code import calls_of, hooked, old_workspace, stand_in, workspace
+from hooks.claude_code import (
+    calls_of,
+    hooked,
+    old_workspace,
+    recorded,
+    stand_in,
+    workspace,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -61,4 +68,4 @@ def test_no_server_starts_when_it_is_off_or_the_repository_is_no_lem_of_this_for
     hooked("serve", event, LEM_HOOK_BIN=str(hook), LEM_SERVE="")
     assert calls_of(calls, 1) == ["serve ensure"]
     time.sleep(0.5)
-    assert calls.read_text().splitlines() == ["serve ensure"]
+    assert recorded(calls) == ["serve ensure"]

@@ -25,6 +25,7 @@ from hooks.claude_code import (
     hooked,
     launched,
     old_workspace,
+    recorded,
     stand_in,
     workspace,
 )
@@ -179,7 +180,7 @@ def test_a_hook_registered_twice_judges_each_message_once(tmp_path: Path) -> Non
     )
     assert len(worker_calls(calls_of(calls, 2))) == 2
     time.sleep(0.5)
-    assert len(worker_calls(calls.read_text().splitlines())) == 2
+    assert len(worker_calls(recorded(calls))) == 2
     waiting = tmp_path / "repo" / ".lem" / "state" / "corrections-waiting"
     sessions = sorted(
         json.loads(path.read_bytes())["session"] for path in waiting.iterdir()
@@ -346,7 +347,7 @@ def test_nothing_is_handed_on_without_the_machines_yes_or_where_lem_0_3_keeps_it
     hooked("corrections", typed(repo), LEM_HOOK_BIN=str(hook), XDG_CONFIG_HOME=yes)
     assert len(worker_calls(calls_of(calls, 1))) == 1
     time.sleep(0.5)
-    assert len(worker_calls(calls.read_text().splitlines())) == 1
+    assert len(worker_calls(recorded(calls))) == 1
 
 
 def test_the_repositorys_team_and_local_yes_do_not_start_the_hook_worker(
@@ -449,7 +450,7 @@ def test_a_machine_file_main_would_refuse_says_no(tmp_path: Path) -> None:
             XDG_CONFIG_HOME=str(home.parent),
         )
     time.sleep(0.5)
-    assert not worker_calls(calls.read_text().splitlines() if calls.exists() else [])
+    assert not worker_calls(recorded(calls))
     assert not (tmp_path / "repo" / ".lem" / "state" / "corrections-waiting").exists()
 
 
@@ -474,4 +475,4 @@ def test_a_linked_folder_of_the_queue_takes_no_words_of_the_owner(
     time.sleep(0.5)
     assert list((elsewhere / "waiting").iterdir()) == []
     assert list((elsewhere / "claims").iterdir()) == []
-    assert not worker_calls(calls.read_text().splitlines() if calls.exists() else [])
+    assert not worker_calls(recorded(calls))

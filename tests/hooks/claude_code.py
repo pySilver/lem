@@ -129,8 +129,13 @@ def claude_environ(environ: dict[str, str]) -> dict[str, str]:
 def stand_in(folder: Path, delay: float = 0) -> tuple[Path, Path]:
     """A `lem-hook` in `folder` that runs this checkout's hooks as if its Python were
     `folder/bin/python`, and the `lem` beside that Python, a script that waits `delay` seconds,
-    then appends its arguments and the bytes of the file its last argument names to `calls`; the
-    hook and `calls`."""
+    then writes its arguments and the bytes of the file its last argument names as one record in
+    the folder `calls`; the hook and `calls`.
+
+    Each call writes its record in a hidden file of its own and renames it when it is whole, so a
+    reader sees whole records only. Workers the hook starts detached run at the same time, and
+    with one shared file a call's arguments could land after another call's bytes on one line
+    (a full run on a loaded Mac, 2026-11-27)."""
     bin_folder = folder / "bin"
     bin_folder.mkdir(parents=True)
     calls = folder / "calls"
@@ -146,26 +151,42 @@ def stand_in(folder: Path, delay: float = 0) -> tuple[Path, Path]:
     lem = bin_folder / "lem"
     lem.write_text(
         f"#!/bin/sh\nsleep {delay}\n"
-        f"echo \"$*\" >> '{calls}'\n"
+        f"mkdir -p '{calls}'\n"
+        f"part=$(mktemp '{calls}/.XXXXXX')\n"
+        'echo "$*" > "$part"\n'
         "for last do :; done\n"
-        f"[ -f \"$last\" ] && cat \"$last\" >> '{calls}' && echo >> '{calls}'\n"
+        '[ -f "$last" ] && cat "$last" >> "$part" && echo >> "$part"\n'
+        f'mv "$part" \'{calls}\'/"${{part##*/.}}"\n'
     )
     hook.chmod(0o755)
     lem.chmod(0o755)
     return hook, calls
 
 
+def records_of(calls: Path) -> list[Path]:
+    """The whole records in the folder `calls`, by name."""
+    if not calls.exists():
+        return []
+    return sorted(path for path in calls.iterdir() if not path.name.startswith("."))
+
+
+def recorded(calls: Path) -> list[str]:
+    """The lines of the whole records in `calls`: each record a line of words, its call, which
+    the bytes of a file may follow."""
+    return [
+        line for path in records_of(calls) for line in path.read_text().splitlines()
+    ]
+
+
 def calls_of(calls: Path, count: int) -> list[str]:
-    """The lines of `calls` once it holds `count` calls, each a line of words (the bytes of a
-    file may follow it, and two calls at once may mix theirs); what it holds after STARTED_WAIT
-    seconds else."""
+    """The lines of the records in `calls` once it holds `count` of them; what it holds after
+    STARTED_WAIT seconds else."""
     deadline = time.monotonic() + STARTED_WAIT
     while time.monotonic() < deadline:
-        lines = calls.read_text().splitlines() if calls.exists() else []
-        if len([line for line in lines if line[:1].isalpha()]) >= count:
-            return lines
+        if len(records_of(calls)) >= count:
+            return recorded(calls)
         time.sleep(0.05)
-    return calls.read_text().splitlines() if calls.exists() else []
+    return recorded(calls)
 
 
 def files_of(folder: Path) -> dict[str, bytes]:
