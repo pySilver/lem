@@ -1,7 +1,9 @@
 /* lem-ask runtime styles. Colors come from the agterm theme variables; never declare --agterm-* here.
-   The base rules are the "refined" style; the other styles override them under .hd[data-style=…]. */
+   The base rules are the "refined" style; the other styles override them under .hd[data-style=…].
+   The line after an answer (.hd-done) is a child of body beside the page's root, so it takes the
+   same variables, or its background and its box of the answer would have no color. */
 :root { color-scheme: light dark; }
-.hd {
+.hd, .hd-done {
   --bg: var(--agterm-background, Canvas);
   --fg: var(--agterm-foreground, CanvasText);
   --accent: var(--agterm-color-4, #3d7cf5);

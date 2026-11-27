@@ -11,12 +11,11 @@ from lem.board.inputs.waits import Reasons
 
 class NotNow(Input, frozen=True, kw_only=True):
     """A step with nothing to do now (`Lem merges it now`, `Nothing to park`): its id, what it
-    says, the way back, and the id a refresh keeps it by."""
+    says and the way back."""
 
     id: Plain
     said: Inline
     back: Link
-    keep: Plain | None = None
 
 
 class Confirm(Input, frozen=True, kw_only=True):

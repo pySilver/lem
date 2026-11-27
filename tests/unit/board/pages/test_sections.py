@@ -361,16 +361,13 @@ def test_each_confirmation_and_card_draw_only_their_typed_action() -> None:
     assert card.one(tag="iframe").attrs["title"] == "A question"
 
 
-def test_card_answer_keeps_the_frame_only_for_a_board_receipt() -> None:
-    for keep in ("card-a", None):
-        receipt = task(
-            shows="card",
-            not_now=NotNow(id="card-step", said="B was taken.", back=BACK, keep=keep),
-        ).one(id_="card-step")
-        if keep:
-            assert receipt.attrs["data-keep"] == keep
-        else:
-            assert "data-keep" not in receipt.attrs
+def test_a_card_that_no_longer_waits_has_no_key_a_refresh_keeps_it_by() -> None:
+    taken = task(
+        shows="card",
+        not_now=NotNow(id="card-step", said="B was taken.", back=BACK),
+    ).one(id_="card-step")
+    assert "data-keep" not in taken.attrs
+    assert taken.words().startswith("B was taken.")
 
 
 def test_merge_shows_the_bound_tip_and_each_reason_id() -> None:
