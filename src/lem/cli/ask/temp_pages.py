@@ -11,7 +11,7 @@ from lem.app.asking import keys
 from lem.kernel import files
 
 if TYPE_CHECKING:
-    from lem.cli.ask.overlay_tree import Overlay
+    from lem.app.asking.overlay_tree import Overlay
 
 # The lifetime of a generated page, as on main.
 PRIVATE_MODE = 0o700

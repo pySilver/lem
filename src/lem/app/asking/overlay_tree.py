@@ -1,10 +1,19 @@
-"""Which open overlay of this agterm session belongs to lem ask."""
+"""The open overlays of one agterm session, read from agterm's tree.
+
+The command line and the board server both read it: `lem ask` to find its own page, the server
+to close a card's page after the board's answer.
+"""
+
+from typing import TYPE_CHECKING
 
 import msgspec
 
 from lem.adapters import agterm_ctl
 from lem.app.asking.overlay_read import environment
 from lem.ports.faults import Unanswered
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 
 class Overlay(msgspec.Struct, frozen=True, kw_only=True):
@@ -45,7 +54,7 @@ class Reply(msgspec.Struct, frozen=True, kw_only=True):
     answer: Seen = msgspec.field(name="result")
 
 
-def read(environ: dict[str, str], session: str) -> tuple[Overlay, ...]:
+def read(environ: Mapping[str, str], session: str) -> tuple[Overlay, ...]:
     """The open overlays of this session."""
     said = agterm_ctl.said(environment(environ), "tree", "--json")
     try:
