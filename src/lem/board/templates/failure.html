@@ -1,4 +1,4 @@
-{% from 'assets.html' import head %}
+{% from 'assets.html' import head, plain_top %}
 <!doctype html>
 <html lang="en"><head>{{ head(board.title ~ ' · Lem', '/assets', false) }}</head>
-<body><main class="plain"><h1>{{ board.title }}</h1><p>{{ board.said }}</p>{% if board.fix %}<p>{{ board.fix }}</p>{% endif %}<a href="/">Workspaces</a></main></body></html>
+<body class="app plain"><main class="page doc">{{ plain_top(board.title, none, board.said, '/assets') }}{% if board.fix %}<section class="box"><p>{{ board.fix }}</p></section>{% endif %}<a class="btn" href="/">Workspaces</a></main></body></html>

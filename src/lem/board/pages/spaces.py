@@ -9,6 +9,7 @@ from lem.board.views.frame.counted import counted
 
 if TYPE_CHECKING:
     from lem.board.counts import Rows
+    from lem.board.inputs.text import Look
     from lem.board.views.world import World
 
 
@@ -25,24 +26,28 @@ def says(row: Row) -> str:
     return f"{counts} · {row.problem}" if row.problem else counts
 
 
-def display(row: Row, *, joined: bool) -> str:
-    """Include the machine name when the board lists another machine."""
-    if joined:
-        return f"{row.host}/{row.name}".rstrip("/")
-    return row.name
+def look(row: Row) -> Look | None:
+    """The owner's color when something waits, the color of trouble when the counts are missing."""
+    if row.waits:
+        return "you"
+    if row.reachable is False or (row.problem and row.waits is None):
+        return "bad"
+    return None
 
 
 def index(rows: Rows, host: str, *, problem: str | None = None) -> switcher.Workspaces:
-    """The index, with workspaces that wait for the owner first."""
+    """The index, with workspaces that wait for the owner first. With two or more machines,
+    each box names its machine, under which the page groups it, and its workspace alone."""
     joined = any(row.host != host for row in rows)
     boxes = tuple(
         switcher.Box(
             id=row.url or row.host,
-            name=display(row, joined=joined),
+            name=(row.name or row.host) if joined else row.name,
+            host=row.host if joined else None,
             path=row.path,
             href=None if row.reachable is False else row.url,
             waits=bool(row.waits),
-            chips=(Chip(label=says(row)),),
+            chips=(Chip(label=says(row), look=look(row)),),
         )
         for row in rows
     )

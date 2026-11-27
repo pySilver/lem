@@ -15,3 +15,11 @@
 <link rel="stylesheet" href="{{ assets }}/push.css" data-turbo-track="reload">
 {% if board %}<script src="{{ assets }}/vendor/board-app.js" defer data-turbo-track="reload"></script>{% endif %}
 {% endmacro %}
+{% macro plain_top(title, host, ask, assets) %}
+<div class="top"><div class="ident">
+<picture class="mark"><source media="(prefers-color-scheme: dark)" srcset="{{ assets }}/icons/icon-64-night.png"><img src="{{ assets }}/icons/icon-64.png" alt=""></picture>
+<div class="eyebrow"><b>Lem</b>{% if host %}<span aria-hidden="true">·</span><span class="plain-host">{{ host }}</span>{% endif %}</div>
+<div class="title" data-title="{{ title }}"><h1>{{ title }}</h1></div>
+<p class="ask">{{ ask }}</p>
+</div></div>
+{% endmacro %}

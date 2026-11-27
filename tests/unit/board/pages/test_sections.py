@@ -504,12 +504,46 @@ def test_index_and_failure_escape_words_and_link_to_the_board() -> None:
     ).root
     assert board.one(id_="online").one(tag="a").raw() == MALICIOUS
     assert not board.one(id_="offline").all(tag="a")
-    assert not board.all(tag="img")
+    assert not board.one(cls="workspace-list").all(tag="img")
     refused = Parsed(
         render.section("failure.html", Failure(title="Refused", said=MALICIOUS))
     ).root
     assert refused.one(tag="main").one(tag="p").raw() == MALICIOUS
     assert refused.one(tag="main").one(tag="a").attrs["href"] == "/"
+
+
+def test_the_index_groups_two_machines_and_marks_what_waits_for_the_owner() -> None:
+    rows = (
+        PeerRow(name="shop", host="studio", url="/studio/shop/", path="/s", waits=2),
+        PeerRow(name="lem", host="desk", url="/desk/lem/", path="/d", waits=1),
+        PeerRow(name="blog", host="studio", url="/studio/blog/", path="/b", waits=0),
+        PeerRow(name="", host="attic", reachable=False, said="no answer"),
+    )
+    index = spaces.index(rows, "studio")
+    board = Parsed(render.section("workspaces.html", index)).root
+    machines = board.all(cls="machine")
+    assert [machine.one(tag="h2").words() for machine in machines] == [
+        "studio this machine",
+        "desk",
+        "attic",
+    ]
+    assert [
+        [box.attrs["id"] for box in machine.all(cls="workspace")]
+        for machine in machines
+    ] == [["/studio/shop/", "/studio/blog/"], ["/desk/lem/"], ["attic"]]
+    shop = board.one(id_="/studio/shop/")
+    assert shop.has("you")
+    assert shop.one(tag="a").raw() == "shop"
+    assert shop.one(cls="tag").has("c-you")
+    assert not board.one(id_="/studio/blog/").has("you")
+    attic = board.one(id_="attic")
+    assert attic.has("off")
+    assert attic.one(tag="b").raw() == "attic"
+    assert attic.one(cls="tag").has("c-bad")
+    alone = spaces.index(rows[:1], "studio")
+    single = Parsed(render.section("workspaces.html", alone)).root
+    assert not single.one(cls="machine").all(tag="h2")
+    assert single.one(id_="/studio/shop/").one(tag="a").raw() == "shop"
 
 
 def test_a_missing_task_has_its_own_panel_and_http_status() -> None:

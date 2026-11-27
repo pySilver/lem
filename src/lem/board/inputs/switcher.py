@@ -47,12 +47,14 @@ class Switcher(Input, frozen=True, kw_only=True):
 
 
 class Box(Input, frozen=True, kw_only=True):
-    """A workspace on the page of every workspace: its id, its name, its path, its board's
-    address (none when its machine does not answer), whether something waits there, and its
-    chips (`2 wait for you`, `3 build · 1 in checks and review`, `not reachable`)."""
+    """A workspace on the page of every workspace: its id, its name, its machine (only when the
+    page lists two or more, which it groups the boxes by), its path, its board's address (none
+    when its machine does not answer), whether something waits there, and its chips
+    (`2 wait for you`, `3 build · 1 in checks and review`, `not reachable`)."""
 
     id: Plain
     name: Plain
+    host: Plain | None = None
     path: Plain
     href: Href | None = None
     waits: bool = False
