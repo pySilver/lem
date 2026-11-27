@@ -18,6 +18,7 @@ NOUNS = (
     ("rules", "lem.cli.rules.command"),
     ("init", "lem.cli.init.command"),
     ("doctor", "lem.cli.doctor.command"),
+    ("uninstall", "lem.cli.uninstall.command"),
     ("issue", "lem.cli.issue.verbs"),
     ("serial", "lem.cli.serial.command"),
     ("prune", "lem.cli.prune.command"),
