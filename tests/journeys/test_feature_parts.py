@@ -274,3 +274,23 @@ def test_two_parts_land_into_the_features_branch_and_the_second_is_checked_again
     )
     for slug in (FIRST, SECOND):
         assert world.repo.head_of(f"docs/{slug}") is None
+
+
+def test_a_dropped_part_cleans_after_its_feature_was_dropped_too(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    ok(capsys, world, "task", "open", "first", "--ask", "a task the feature waits for")
+    ask = ("--ask", "the docs, in parts", "--after", "first")
+    ok(capsys, world, "task", "open", FEATURE, *ask)
+    ok(capsys, world, "task", "worktree", FEATURE, "--branch", FEATURE_BRANCH)
+    run_git(worktree(world, FEATURE), "push", "--quiet", "origin", FEATURE_BRANCH)
+    ok(capsys, world, "task", "open", FIRST, "--ask", "a part", "--part-of", FEATURE)
+    ok(capsys, world, "task", "worktree", FIRST, "--branch", f"docs/{FIRST}")
+    for slug in (FIRST, FEATURE):
+        line = ("--line", "the owner drops it")
+        ok(capsys, world, "task", "move", slug, "dropped", *line)
+    cleaned = ok(capsys, world, "land", "clean", FIRST)["result"]
+    assert cleaned["branch_gone"] is True, cleaned
+    assert not worktree(world, FIRST).exists()
+    assert record_of(world, FIRST)["task"]["status"] == "dropped"

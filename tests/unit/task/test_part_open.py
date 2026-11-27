@@ -6,18 +6,31 @@ from typing import TYPE_CHECKING
 
 import msgspec
 import pytest
+from msgspec.structs import replace
 
 from fakes.command import lem
+from fakes.records import noted
 from fakes.repo import RealRepo, run_git
 from lem.app.tasks import open as opening
 from lem.app.tasks.opening import Asked
 from lem.kernel.errors import Refusal
-from unit.task.spaces import SETTINGS, made, read, refusal, result, workspace
+from lem.store import tasks
+from unit.task.spaces import (
+    SETTINGS,
+    last_line,
+    made,
+    read,
+    refusal,
+    result,
+    workspace,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from lem.records.record import Record
     from lem.store.places import Workspace
+    from lem.store.tasks import Change
 
 FEATURE = "save-items"
 FEATURE_BRANCH = f"feature/{FEATURE}"
@@ -91,9 +104,10 @@ def test_a_part_with_a_ticket_is_refused_before_any_look(tmp_path: Path) -> None
 
 def test_a_feature_that_is_not_there_is_refused(tmp_path: Path) -> None:
     found = refused(workspace(tmp_path))
-    assert (found.code, found.why) == (
-        "part-of",
-        f"no task {FEATURE} here, so {PART} cannot be a part of it",
+    assert found.code == "part-of"
+    assert found.why == (
+        f"{PART} is a part of {FEATURE}, and the record of {FEATURE} does not read: "
+        f"no task {FEATURE} here"
     )
 
 
@@ -127,7 +141,8 @@ def test_a_feature_with_no_branch_on_origin_is_refused(tmp_path: Path) -> None:
     made(where, FEATURE, branch=FEATURE_BRANCH)
     found = refused(where)
     assert found.why == (
-        f"{PART} is a part of {FEATURE}, and origin has no branch {FEATURE_BRANCH}"
+        f"{PART} is a part of {FEATURE}, and origin has no branch {FEATURE_BRANCH}, "
+        "also after a fetch"
     )
     assert read(where, FEATURE).task.after == ()
 
@@ -155,3 +170,44 @@ def test_the_command_takes_part_of_and_its_help_says_the_owner(tmp_path: Path) -
     helped = lem("task", "open", "--help", cwd=where.checkout)
     assert "--part-of" in helped.stdout
     assert "the owner gives no --ticket" in " ".join(helped.stdout.split())
+
+
+def written_beside(
+    monkeypatch: pytest.MonkeyPatch, where: Workspace, change: Change
+) -> None:
+    """Each scan of every record is followed by another writer's `change` of the feature,
+    with no workspace lock: the gap between the open's scan and its writes."""
+    every = tasks.every
+
+    def scanned(state: Path) -> tuple[Record, ...]:
+        found = every(state)
+        revision = tasks.read(where.state, FEATURE).revision
+        tasks.update(where.state, FEATURE, change, revision)
+        return found
+
+    monkeypatch.setattr(tasks, "every", scanned)
+
+
+def test_a_write_of_the_feature_beside_the_open_keeps_both(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    where = real(tmp_path)
+    written_beside(monkeypatch, where, noted("the feature's session wrote its handoff"))
+    assert opened(where).made is True
+    assert read(where, FEATURE).task.after == (PART,)
+    assert last_line(where, FEATURE) == "the feature's session wrote its handoff"
+    assert read(where, PART).task.part_of == FEATURE
+
+
+def test_a_feature_that_got_its_turn_beside_the_open_publishes_no_part(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    where = real(tmp_path)
+
+    def turned(before: Record) -> Record:
+        return replace(before, task=replace(before.task, status="shaping"))
+
+    written_beside(monkeypatch, where, turned)
+    found = refused(where)
+    assert found.why.startswith(f"{FEATURE} is shaping, and a part joins only")
+    assert read(where, FEATURE).task.after == ()

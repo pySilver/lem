@@ -9,10 +9,13 @@ import msgspec
 import pytest
 from msgspec.structs import replace
 
+from fakes.command import lem
 from fakes.records import MOMENT, record
+from fakes.repo import RealRepo
 from lem.app.landing import world as landing_world
 from lem.app.tasks import bases
 from lem.kernel.errors import Refusal
+from lem.model.task import resumes
 from lem.records.base import Day, Frozen, Moment, Slug
 from lem.records.criteria import Criteria
 from lem.records.decisions import Decision
@@ -36,6 +39,7 @@ FEATURE = "save-items"
 FEATURE_BRANCH = f"feature/{FEATURE}"
 PART = "save-endpoint"
 STABLE = '[branch]\nbase = "stable"\n'
+SHAPE = Shape(type="feat", why="a part", track="small")
 
 
 class OldTask(Frozen, frozen=True, kw_only=True):
@@ -135,7 +139,8 @@ def feature(where: Workspace, **fields: object) -> None:
 
 
 def part(**fields: object) -> Record:
-    return record(PART, status="building", part_of=FEATURE, **fields)
+    """The part's record: building, a part of the feature, with `fields` over it."""
+    return record(PART, **{"status": "building", "part_of": FEATURE, **fields})
 
 
 def refused(where: Workspace, chosen: Record, git: Mock | None = None) -> Refusal:
@@ -209,8 +214,12 @@ def test_a_part_whose_feature_has_no_branch_on_origin_is_refused(
     found = refused(where, part(), on_origin())
     assert (
         found.why
-        == f"{PART} is a part of {FEATURE}, and origin has no branch {FEATURE_BRANCH}"
+        == f"{PART} is a part of {FEATURE}, and origin has no branch {FEATURE_BRANCH}, "
+        "also after a fetch"
     )
+    git = on_origin()
+    refused(where, part(), git)
+    git.fetch.assert_called_once_with(where.checkout)
     assert found.fix.startswith(f"push {FEATURE_BRANCH} to origin, then run the step")
 
 
@@ -237,3 +246,53 @@ def test_the_world_of_a_part_reads_origin_at_its_features_branch(
         BASE,
         TREE,
     )
+
+
+def test_a_part_whose_branch_git_has_not_seen_names_the_fetch(tmp_path: Path) -> None:
+    where = workspace(tmp_path, STABLE)
+    feature(where)
+    git = on_origin()
+    git.origin_url.return_value = None
+    found = refused(where, part(), git)
+    assert found.why.startswith(
+        f"{PART} is a part of {FEATURE}, and git has not seen the branch "
+        f"{FEATURE_BRANCH} on origin: This repository has no Git remote named origin."
+    )
+    assert (
+        found.fix
+        == f"git fetch origin brings {FEATURE_BRANCH}, then run the step again"
+    )
+
+
+def test_a_part_cut_on_another_machine_finds_its_features_branch_after_a_fetch(
+    tmp_path: Path,
+) -> None:
+    repo = RealRepo.init(tmp_path / "repo", {"README.md": b"one\n"})
+    # another machine pushes the feature's branch, and this clone has not fetched it
+    repo.outside_commit(FEATURE_BRANCH, {"FEATURE.md": b"the feature\n"})
+    where = workspace(repo.checkout)
+    feature(where)
+    made(where, PART, status="building", part_of=FEATURE, shape=SHAPE)
+    ran = lem("task", "worktree", PART, cwd=repo.checkout)
+    assert ran.code == 0, ran
+    assert (where.lem / "worktrees" / PART / "FEATURE.md").is_file()
+
+
+@pytest.mark.parametrize("ended", ["landed", "dropped"])
+def test_an_ended_part_takes_its_features_branch_when_the_feature_ended_too(
+    tmp_path: Path, ended: str
+) -> None:
+    where = workspace(tmp_path, STABLE)
+    feature(where, status="dropped")
+    chosen = bases.chosen(on_origin(FEATURE_BRANCH), where, part(status=ended))
+    assert chosen == FEATURE_BRANCH
+
+
+@pytest.mark.parametrize("resumed", ["request", "breaker"])
+def test_a_resumed_part_stays_a_part_of_its_feature(resumed: str) -> None:
+    old = part(status="dropped", branch=f"feat/{PART}").task
+    if resumed == "request":
+        task = resumes.request_task(old, f"{PART}-2", f"feat/{PART}", MOMENT)
+    else:
+        task = resumes.breaker_task(old, f"{PART}-2", 1, MOMENT)
+    assert (task.slug, task.part_of) == (f"{PART}-2", FEATURE)
