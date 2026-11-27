@@ -133,7 +133,23 @@ snapshots to show which process took each step.
 
 ## Checks
 
-- [ ] R1 The standard track in a real session. **Owner at the Mac.**
+- [x] R1 The standard track in a real session. **Owner at the Mac.**
+
+  Passed on 2026-11-27 (round 6) on `rebuild` at `b8b54763`, from the checkout `rb-main` (`T/bin4`,
+  `--plugin-dir`), `RUN=r6`, with findings; the trial operator answered as the owner in the
+  scratch repository (decision 27, `r1c-owner-answers.md`). The interview took four questions
+  with the sheet's example; both personas read the criteria (4 of 5 flagged) and the owner
+  approved them as written on the card. The plan was recorded on commit (`task.plan`), and a
+  plan talk of 7 turns, 4 questions and 4 repairs ran in a companion: the Codex seat failed (no
+  login, then no mailbox delivery after the owner's own `codex login`) and the Claude stand-in
+  argued it. `lem task show` names the plan and the talk; the record holds the approval and the
+  checks. The review ran all four lenses, green; PR 33 (`trial-r6-r1-one-line-glossary-export`
+  into `trial-r6-r1-base`) says the talk happened; the merge agent called the owner, who
+  merged: `a852547`, and a fresh clone passes `sh tests/words.sh` and exports `receive\n`.
+  Findings: auto mode refused the defender's read `lem criteria approved` as "Undermining
+  Oversight" (the trial home has no `Bash(lem *)` rule), and the operator gave it the read's
+  result. Evidence in `/private/tmp/lem-trial-r1/evidence/`: `r1c-*`, `r1c-transcripts/`,
+  `r1c-talk/`, `r1c-task-final/`.
 
   On the scratch base, seed a project cast with an export operator and a support reader. Use
   the project's `/lem init` cast stage if this fixture has none. Set `flow.topics` to
