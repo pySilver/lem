@@ -52,8 +52,6 @@ claude plugin marketplace add pySilver/lem --scope project
 claude plugin install lem@lem --scope project
 ```
 
-For a GitHub SSH error, [update over HTTPS](update.md#update-over-https).
-
 `/lem init` commits `.claude/settings.json` only if git does not track it and it has only the two
 Lem entries. They are `extraKnownMarketplaces` for `lem` and `enabledPlugins` for `lem@lem`.
 Commit any other `.claude/settings.json` yourself. Each person installs Lem in their own clone
@@ -108,7 +106,8 @@ For all repositories, in `~/.config/lem/` (or `$XDG_CONFIG_HOME/lem/`):
   computers, the compaction and the correction queue.
 - `workspaces.json`, `serve.json`, `serve.log`, `lem.log`: the repositories that the board server
   shows, the server, its output and the faults of Lem.
-- `push-key.pem`, `push.json`: the key and the devices of the notifications.
+- `push-key.pem`, `push.json`: the key and the devices of the
+  [notifications](phone.md#the-key-and-the-devices). The board server makes both. You supply no key.
 
 `lem settings show` gives each setting and the file that it comes from.
 

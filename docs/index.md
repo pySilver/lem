@@ -40,7 +40,7 @@ build and land at the same time. A task takes one of two tracks:
   larger review. [How a task goes](flow.md#the-standard-track) tells when Lem asks for your yes.
 
 ```mermaid
-flowchart LR
+flowchart TD
   request["Your request"] --> read{"Lem reads it"}
   read -->|"fast track"| builder["One builder"]
   builder --> checks["Checks and one review"]

@@ -29,6 +29,13 @@ in the optional [Plannotator Inbox](away.md#answer-from-the-inbox).
 
 *The board on a phone. The picture shows demo data.*
 
+### The key and the devices
+
+You supply no key for the notifications. The board server makes its key, `push-key.pem` in
+`~/.config/lem/`, the first time that the board opens in a browser that can show notifications.
+The server signs each notification with this key. When a device turns on the notifications, the server adds the device
+to `push.json` in the same folder.
+
 ## Two computers, one address
 
 1. On each computer, type `/lem serve tailscale` one time.

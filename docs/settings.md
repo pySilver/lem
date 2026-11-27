@@ -100,10 +100,17 @@ merge.
 
 ### `[seats]`
 
-A seat is one string, `agent/model:effort`. Write all three parts for `seats.reviewer`,
-`seats.planner`, `seats.fallback` and each of `seats.experts`: Lem stops at `"codex"` or
-`"codex/gpt-6.2-sol"` there. In `seats.merger` and `seats.session`, a part that you do not write
-takes the default of the agent. A persona names its own seats in the frontmatter of its file, in
+A seat is one string, `agent/model:effort`. The agent of a seat is `claude` or `codex` in some
+seats, and only `claude` in the others:
+
+- `claude` or `codex`: `seats.reviewer`, `seats.merger`, `seats.fallback` and each of
+  `seats.experts`.
+- only `claude`: `seats.planner` and `seats.session`. Lem refuses `codex` there.
+
+Write all three parts for `seats.reviewer`, `seats.planner`, `seats.fallback` and each of
+`seats.experts`. Lem refuses a seat with a missing part there, such as `"codex"` or
+`"codex/gpt-6.2-sol"`, and its message names the missing part. In `seats.merger` and
+`seats.session`, a part that you do not write takes the default of the agent. A persona names its own seats in the frontmatter of its file, in
 the same form: `seats: ["claude/opus:high"]`. A persona file without it uses the seats of the panel.
 
 Lem takes each seat, and `seats.fallback`, from the first of four places that names it:

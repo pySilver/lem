@@ -83,6 +83,13 @@
 .md-typeset pre:has(> .md-code__nav) { background: var(--md-code-bg-color); border-radius: .4rem; }
 .md-typeset pre > .md-code__nav { position: static; justify-content: flex-end; background: none; }
 
+/* a transcript (lem-transcripts.js): each speaker's turns in the board's hue of that speaker, as
+   the board mixes a hue into the text color for words, and the speaker's word in bold. Each mix
+   reads at a contrast of 4.5 or more on a code block, in both palettes. */
+.md-typeset .lem-turn-you { color: color-mix(in srgb, var(--you) 58%, var(--lem-fg)); }
+.md-typeset .lem-turn-lem { color: color-mix(in srgb, var(--lem) 62%, var(--lem-fg)); }
+.md-typeset .lem-speaker { font-weight: 700; }
+
 /* the page menu (overrides/partials/actions.html): one quiet button, "This page", whose list holds
    the copy, the Markdown file and the assistants. On a wide screen it floats on the title's line, at
    its right; on a narrow one it takes a line of its own above the title, so that the title keeps the
@@ -120,15 +127,18 @@
 /* the footer's links: Lem's home page and the repository */
 .lem-footer-links { display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; padding-top: .6rem; padding-bottom: .8rem; font-size: .7rem; }
 
-/* a chart: Pele's drawing at the width of the text, or its text with the line that says why not */
+/* a chart: Pele's drawing at its own size, or its text with the line that says why not. The drawing
+   never shrinks, so that its smallest words stay at 13 px; a box narrower than the drawing (a phone)
+   scrolls it sideways. Squeezed to the width of the text, the home page's chart had words of 4 px
+   at 1280 px, and the flow's chart words of 6 px on a phone. Each chart of the docs is top to bottom
+   and fits the text's width at 1280 px. Pele writes max-width: 100% on the drawing itself, which
+   only !important outranks. */
 .md-typeset .lem-chart-drawn { margin: 1em 0; padding: .8rem; text-align: center; background: var(--lem-card); border: 1px solid var(--lem-line); border-radius: 12px; overflow-x: auto; }
-.md-typeset .lem-chart-drawn svg { max-width: 100%; height: auto; }
-/* on a narrow screen a chart is drawn at three quarters of its own size, so that its 14 px words
-   stay readable at 10.5 px, and its box scrolls it sideways; squeezed to a phone's width, the flow's
-   chart had words of 6 px. Pele writes max-width: 100% on the drawing itself, which only !important
-   outranks. */
+.md-typeset .lem-chart-drawn svg { max-width: none !important; height: auto; }
+/* on a phone the box gives the drawing its whole width (Pele draws a margin of its own), so that
+   the home page's chart fits 375 px with no scroll */
 @media (max-width: 44.9375em) {
-  .md-typeset .lem-chart-drawn svg { max-width: none !important; zoom: .75; }
+  .md-typeset .lem-chart-drawn { padding: .8rem 0; }
 }
 
 /* a table on a narrow screen: a name in code keeps its line, each column keeps room for a few words,

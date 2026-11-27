@@ -2,8 +2,7 @@
 
 ## Update
 
-An update brings the newest release of Lem. If you use Lem 0.3, follow
-[the steps for Lem 0.3](#from-lem-03). Update the app and the plugin together:
+An update brings the newest release of Lem. Update the app and the plugin together:
 
 ```bash
 brew upgrade pySilver/tap/lem
@@ -29,32 +28,6 @@ repository: one board server serves them all. `lem doctor` shows each one you mi
 - **A task in the current record format begun two releases back** stops, and its message gives the way on
   ([below](#a-task-of-an-older-release)).
 - **A bad release** is not taken back: a newer release repairs it.
-
-## Update over HTTPS
-
-If the plugin update shows `git@github.com: Permission denied (publickey)`, GitHub refused the SSH connection.
-If you have no GitHub SSH key, run this command for a user install of Lem.
-
-```bash
-env GIT_CONFIG_COUNT=1 \
-  GIT_CONFIG_KEY_0=url.https://github.com/.insteadOf \
-  GIT_CONFIG_VALUE_0=git@github.com: \
-  claude plugin update lem@lem --scope user
-```
-
-Git uses HTTPS for GitHub for this command only. For a project install, use `--scope project`.
-
-## From Lem 0.3
-
-Repositories that use Lem 0.3 start over. Lem 1.0 cannot read their task records.
-
-1. Stop the Lem 0.3 board server with `/lem serve stop`.
-2. Close your Lem 0.3 sessions.
-3. Update the app and plugin with the commands above.
-4. Run `lem doctor` in each repository that uses Lem. Its "folders of Lem 0.3" row names the
-   folders to move.
-5. Move those folders aside.
-6. Start a new session and [set up the repository](install.md#set-up-the-repository).
 
 ## A task of an older release
 

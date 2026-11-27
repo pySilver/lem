@@ -7,17 +7,15 @@ def guide(name: str) -> str:
     return " ".join(text_of(name).split())
 
 
-def test_update_from_lem_03_starts_over_before_task_recovery() -> None:
+def test_update_gives_task_recovery_and_no_steps_for_lem_03_or_https() -> None:
+    """The owner's read of 2026-11-27: nobody but his own copies runs Lem 0.3, and the
+    repository is open, so an update needs no key. `lem doctor` still names a folder of 0.3."""
     update = guide("update.md")
-    cutover = update.index("## From Lem 0.3")
-    recovery = update.index("## A task of an older release")
-    old = update[cutover:recovery]
-    assert "start over" in old
-    assert "folders of Lem 0.3" in old
-    assert old.index("Stop the Lem 0.3 board server") < old.index("`lem doctor`")
-    assert old.index("`lem doctor`") < old.index("Move")
-    assert "/lem drop" not in old and "/lem resume" not in old
-    assert "use the current record format" in update[recovery:]
+    assert "Lem 0.3" not in update
+    assert "HTTPS" not in update
+    recovery = update[update.index("## A task of an older release") :]
+    assert "use the current record format" in recovery
+    assert recovery.index("/lem drop") < recovery.index("/lem resume")
 
 
 def test_update_requires_a_new_session_with_the_matching_plugin() -> None:

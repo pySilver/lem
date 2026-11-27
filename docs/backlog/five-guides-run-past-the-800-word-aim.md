@@ -10,7 +10,7 @@ when needed". On 2026-11-26, `wc -w docs/*.md` in `rb/guides` counts the Markdow
 including code blocks.
 
 - `flow.md` has 913 words.
-- `install.md` has 872 words.
+- `install.md` has 873 words.
 - `merge.md` has 888 words.
 - `board.md` has 847 words.
 - `when-lem-needs-you.md` has 810 words.

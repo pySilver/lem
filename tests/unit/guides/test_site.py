@@ -387,6 +387,53 @@ def test_pele_draws_each_chart_of_the_site(site: Path) -> None:
         assert ran.returncode == 0, (name, ran.stderr)
 
 
+def test_each_turn_of_a_transcript_has_its_speakers_class_and_keeps_its_text(
+    site: Path,
+) -> None:
+    """The owner, 2026-11-27: "Colors per actor would be nice to visually distinct who said
+    what". The copy button copies the code's text, so the text stays as it was."""
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip(
+            "no node on PATH: brew install node, which the ESLint gate needs too"
+        )
+    page = site / "index.html"
+    assert any(
+        tag.name == "script"
+        and tag.attributes.get("src", "").endswith("/lem-transcripts.js")
+        for tag in built.read(page).tags
+    )
+    texts = [
+        block for kind, block in built.read(page).blocks if "language-text" in kind
+    ]
+    # a text block that is no transcript: a line of one space, and a turn then a plain line
+    others = ["lem doctor\n", "lem  init\nthen a plain line\n"]
+    ran = subprocess.run(
+        [
+            node,
+            str(built.ROOT / "tests/unit/guides/speakers.mjs"),
+            str(site / "assets/lem-transcripts.js"),
+        ],
+        input=json.dumps(texts + others),
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=NODE_SECONDS,
+    )
+    assert ran.returncode == 0, ran.stderr
+    found = json.loads(ran.stdout)
+    assert found[len(texts) :] == [None, None]
+    transcripts = [
+        (text, turns) for text, turns in zip(texts, found, strict=False) if turns
+    ]
+    assert len(transcripts) == 2
+    for text, turns in transcripts:
+        assert "".join(turn["text"] for turn in turns) == text
+        for turn in turns:
+            assert turn["className"] == f"lem-turn lem-turn-{turn['speaker']}"
+        assert {turn["speaker"] for turn in turns} == {"you", "lem"}
+
+
 def test_the_scripts_and_the_pictures_the_build_copies_are_the_files_of_the_checkout(
     site: Path,
 ) -> None:

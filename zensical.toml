@@ -28,7 +28,7 @@ exclude_docs = """
 /assets/eslint.config.mjs
 """
 extra_css = ["assets/lem-site.css"]
-extra_javascript = ["assets/lem-charts.js"]
+extra_javascript = ["assets/lem-charts.js", "assets/lem-transcripts.js"]
 
 nav = [
   { "Home" = "index.md" },
