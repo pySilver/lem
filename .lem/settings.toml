@@ -30,13 +30,12 @@ protected = []
 [checks]
 # During the build, each builder runs only the tests of its own change. Before the pull request,
 # Lem runs these commands one time, at the root of the task's worktree.
-# One command: every suite of the repository at the same time, the unit level among them
-# (tests/all.sh); its last line says whether all passed. The checks run each command of this list
-# whatever the one before gave, so a unit run before it would only run the unit level twice. Two
-# landings run it at the same time too: each suite works in its own throwaway folders, so two runs
-# share no state (a subagent's read and a trial of three runs at once, 2026-11-20). The machine's
-# load gate (`lem project load`), not a lock, keeps a run from starting on a loaded machine.
-commands = ["bash tests/all.sh"]
+# One command: the test entry's full level, every level of tests/levels.py, the gates and the unit
+# level among them. The checks run each command of this list whatever the one before gave, so a
+# unit run before it would only run the unit level twice. The entry takes /tmp/lem-full-run.lock,
+# so two landings' full runs go one after the other; the machine's load gate keeps a run from
+# starting on a loaded machine.
+commands = [".venv/bin/python -I -B tests --level full"]
 # What a new worktree needs before its tests can run ("uv sync", "npm ci"). Lem runs these one
 # time in each worktree it makes for a task. Here the worktree's .venv, which every suite runs on
 # (tests/python.sh): Lem from the worktree and the tools, at the versions of uv.lock. With the
