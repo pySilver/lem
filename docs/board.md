@@ -52,8 +52,8 @@ Buttons on "Waits for you" and the task pages do what Lem does on your words:
 
 You also answer the questions of a task on the board. Each question has one field for a note:
 
-- **A card**, the question page that the session of a task shows in agterm: **Answer the card**
-  opens it, with the same options and note field.
+- **A card**, the question page that a task's session shows in agterm: **Answer the card** opens
+  it, with the same options. Your answer closes it there and on each board.
 - **A plan** that waits for you to read it: **Build** or **Drop**.
 - **A breaker**: **Help**, **Park** or **Drop**. Help sends your note to the agent of the task, so
   Help needs a note.
