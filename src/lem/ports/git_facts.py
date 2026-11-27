@@ -3,6 +3,9 @@ size, and a rebase in progress."""
 
 from lem.records.base import Frozen, Sha
 
+# The first words of a push that its lease refused: origin's branch is not at the commit named.
+LEASE = "stale info"
+
 
 class Conflict(Frozen, frozen=True, kw_only=True):
     """A merge or a rebase stopped on these files."""
@@ -12,7 +15,7 @@ class Conflict(Frozen, frozen=True, kw_only=True):
 
 class GitRefused(Frozen, frozen=True, kw_only=True):
     """Git refused an act (a hook, a lock, a lease, a branch not at the commit named): its
-    words."""
+    words, which begin with LEASE for a push its lease refused."""
 
     said: str
 

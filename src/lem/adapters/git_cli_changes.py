@@ -1,6 +1,7 @@
 """The facts of paths of the `Git` port through real git (`GitChanges`): the files of a folder at a
-commit, the paths a range changed, and the commits a base holds already by their patch. Paths
-keep the names git wrote (`-z`), so they can name a file again."""
+commit, the paths a range changed, the commits a base holds already by their patch, and a merge
+commit's diff against git's own merge of its parents. Paths keep the names git wrote (`-z`), so
+they can name a file again."""
 
 import os
 from typing import TYPE_CHECKING
@@ -20,8 +21,8 @@ MARKED = f"--format=%m%x00{LOG_FIELDS}"
 
 
 class Changes(Shell):
-    """The files under a folder at a commit, the paths of a range, and the commits a rebase
-    leaves out because the base holds their patch."""
+    """The files under a folder at a commit, the paths of a range, the commits a rebase
+    leaves out because the base holds their patch, and a merge's own changes."""
 
     def files(self, where: Path, rev: str, folder: str) -> tuple[str, ...]:
         named = ("ls-tree", "-r", "--name-only", "-z", "--full-tree", rev, "--", folder)
@@ -35,6 +36,10 @@ class Changes(Shell):
         marks = ("log", "--cherry-mark", "--right-only", "--no-merges", "--reverse")
         span = f"{onto}...{tip}"
         return same_patch(self.output(where, *marks, MARKED, span).decode())
+
+    def remerge(self, where: Path, commit: str) -> str:
+        shown = ("show", "--remerge-diff", "--format=", "--no-color", "--no-ext-diff")
+        return self.output(where, *shown, commit).decode(errors="replace")
 
     def names(self, where: Path, *args: str) -> tuple[str, ...]:
         """The names of a `-z` list git gives for `args`, as filesystem paths."""

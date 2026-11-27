@@ -30,6 +30,7 @@ OPENED = MappingProxyType(
         "merged": "after the merge, for the cleanup",
         "conflict": "to bring its pull request onto the base",
         "queue": "the task it waited for ended",
+        "sync": "the base moved: the feature takes it in by a merge",
         "night": "for the night",
         "owner": "on your word",
         "stopped": (
@@ -44,6 +45,7 @@ WOKEN = MappingProxyType(
             "GitHub calls the pull request conflicting: the session brings it onto the base"
         ),
         "queue": "the task it waited for ended",
+        "sync": "the base moved: the feature takes it in by a merge",
     }
 )
 WORKED = Told(

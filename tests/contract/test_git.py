@@ -16,7 +16,7 @@ from fakes.repo import RealRepo, git_env, run_git, write
 from lem.adapters import git_cli, git_cli_acts, git_cli_shell
 from lem.adapters.git_cli_names import shown
 from lem.ports.faults import Unanswered
-from lem.ports.git_facts import Conflict, GitRefused
+from lem.ports.git_facts import LEASE, Conflict, GitRefused
 from lem.ports.place import Place
 
 if TYPE_CHECKING:
@@ -46,6 +46,12 @@ class RealWorld:
         write(where, dict(files))
         run_git(where, "add", "--all")
         run_git(where, "commit", "--quiet", "--message", f"Merge {ref}")
+        return run_git(where, "rev-parse", "HEAD")
+
+    def resolve(self, where: Path, files: dict[str, bytes]) -> str:
+        write(where, dict(files))
+        run_git(where, "add", "--all")
+        run_git(where, "commit", "--quiet", "--no-edit")
         return run_git(where, "rev-parse", "HEAD")
 
     def refuse_commits(self, said: str) -> None:
@@ -383,3 +389,75 @@ def test_a_detached_head_is_on_no_branch_and_a_checkout_with_no_origin_names_non
     assert world.git.branch_of(where) is None
     run_git(world.checkout, "remote", "remove", "origin")
     assert world.git.origin_url(world.checkout) is None
+
+
+def test_a_merge_whose_commit_a_hook_refuses_leaves_no_merge_behind(
+    tmp_path: Path,
+) -> None:
+    world = real_world(tmp_path)
+    where = task_worktree(world)
+    tip = commit_file(world, where, "a.txt", b"a\n")
+    theirs = world.outside_commit("main", {"other.txt": b"o\n"})
+    world.git.fetch(where)
+    hook = world.checkout / ".git" / "hooks" / "pre-merge-commit"
+    hook.parent.mkdir(parents=True, exist_ok=True)
+    hook.write_text("#!/bin/sh\necho 'no merge today' >&2\nexit 1\n")
+    hook.chmod(0o755)
+    refused = world.git.merge(where, theirs, "Merge origin/main")
+    assert isinstance(refused, GitRefused)
+    assert "no merge today" in refused.said
+    assert world.git.tip(where, "HEAD") == tip
+    assert world.git.tip(where, "MERGE_HEAD") is None
+    assert world.git.clean(where)
+
+
+def test_a_push_whose_lease_git_refuses_after_the_read_says_stale_info(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    world = real_world(tmp_path)
+    where = task_worktree(world)
+    first = commit_file(world, where, "a.txt", b"a\n")
+    assert world.git.push(where, "fix-the-login", None, commit=first) == first
+    world.outside_commit("fix-the-login", {"t.txt": b"t\n"})
+    second = commit_file(world, where, "a.txt", b"aa\n")
+    # origin moves between the adapter's read of it and the push itself
+    monkeypatch.setattr(git_cli_acts.Rewrite, "on_origin", lambda *_: first)
+    refused = world.git.push(where, "fix-the-login", first, commit=second)
+    assert isinstance(refused, GitRefused)
+    assert refused.said.startswith(f"{LEASE}: ")
+
+
+def test_a_push_a_hook_refuses_is_no_lease_refusal(tmp_path: Path) -> None:
+    world = real_world(tmp_path)
+    where = task_worktree(world)
+    first = commit_file(world, where, "a.txt", b"a\n")
+    hook = world.checkout / ".git" / "hooks" / "pre-push"
+    hook.parent.mkdir(parents=True, exist_ok=True)
+    hook.write_text("#!/bin/sh\necho 'no push today' >&2\nexit 1\n")
+    hook.chmod(0o755)
+    refused = world.git.push(where, "fix-the-login", None, commit=first)
+    assert isinstance(refused, GitRefused)
+    assert not refused.said.startswith(LEASE)
+
+
+def test_a_conflict_whose_resolution_rerere_staged_waits_for_a_builder(
+    tmp_path: Path,
+) -> None:
+    world = real_world(tmp_path)
+    run_git(world.checkout, "config", "rerere.enabled", "true")
+    run_git(world.checkout, "config", "rerere.autoupdate", "true")
+    where = task_worktree(world)
+    tip = commit_file(world, where, "README.md", b"ours\n")
+    theirs = world.outside_commit("main", {"README.md": b"theirs\n"})
+    world.git.fetch(where)
+    first = world.git.merge(where, theirs, "Merge origin/main")
+    assert first == Conflict(files=("README.md",))
+    world.resolve(where, {"README.md": b"resolved\n"})
+    run_git(where, "reset", "--quiet", "--hard", tip)
+    # git stages the resolution it recorded, and leaves no file unmerged
+    again = world.git.merge(where, theirs, "Merge origin/main")
+    assert again == Conflict(files=("README.md",))
+    assert world.git.tip(where, "MERGE_HEAD") == theirs
+    assert (where / "README.md").read_bytes() == b"resolved\n"
+    run_git(where, "commit", "--quiet", "--no-edit")
+    assert world.git.commits(where, tip, "HEAD")[-1].parents == (tip, theirs)

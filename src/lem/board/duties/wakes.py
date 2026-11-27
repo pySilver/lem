@@ -47,6 +47,13 @@ def since(duty: Duty, slug: str, moment: datetime, whys: Collection[str] = ()) -
     return any(not whys or act.why in whys for act in later)
 
 
+def for_head(duty: Duty, slug: str, why: WakeWhy, head: str) -> bool:
+    """Whether a wake for `why` of the task's session named the commit `head`."""
+    acts = log.read(duty.here.folder(slug))
+    named = {(act.why, act.head) for act in acts if isinstance(act, Wake)}
+    return (why, head) in named
+
+
 def after_end(duty: Duty, slug: str) -> bool:
     """Whether a session got the wake for this task's one end or opened after it."""
     reached = log.read(duty.here.folder(slug))

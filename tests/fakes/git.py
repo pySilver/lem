@@ -10,6 +10,7 @@ sides changed to different bytes is a conflict.
 `outside_commit` and `outside_merge` stand for what someone else does on the remote: a
 teammate's push, under the teammate's name, a merge on GitHub. `Remote` is what `LocalForge`
 merges through. `refused_commit` stands for a commit hook that refuses every commit.
+`merge_resolved` stands for a builder's commit of a merge that stopped on a conflict.
 """
 
 import difflib
@@ -19,7 +20,14 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from lem.ports.faults import Unanswered
-from lem.ports.git_facts import Commit, Conflict, DiffStat, GitRefused, RebaseState
+from lem.ports.git_facts import (
+    LEASE,
+    Commit,
+    Conflict,
+    DiffStat,
+    GitRefused,
+    RebaseState,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Collection
@@ -80,17 +88,28 @@ class Stored:
     author: str = OWN
 
 
+@dataclass(frozen=True)
+class Merging:
+    """A merge that stopped in a worktree: the commit it takes in, and the tree it made with our
+    side of each file in conflict."""
+
+    other: str
+    tree: Tree
+
+
 @dataclass
 class Worktree:
-    """A worktree: its branch, and a rebase that stopped in it."""
+    """A worktree: its branch, and a rebase or a merge that stopped in it."""
 
     branch: str
     rebase: RebaseState | None = None
     before_rebase: str | None = None
+    merging: Merging | None = None
 
 
-def merged(base: Tree, ours: Tree, theirs: Tree) -> Tree | Conflict:
-    """The three-way merge of two trees over their base, path by path."""
+def three_way(base: Tree, ours: Tree, theirs: Tree) -> tuple[Tree, tuple[str, ...]]:
+    """The three-way merge of two trees over their base, path by path, and the paths both
+    sides changed to different bytes, which keep our side in the tree."""
     result: Tree = {}
     clashes: list[str] = []
     for path in sorted(base.keys() | ours.keys() | theirs.keys()):
@@ -101,10 +120,29 @@ def merged(base: Tree, ours: Tree, theirs: Tree) -> Tree | Conflict:
             kept = other
         else:
             clashes.append(path)
-            continue
+            kept = mine
         if kept is not None:
             result[path] = kept
-    return Conflict(files=tuple(clashes)) if clashes else result
+    return result, tuple(clashes)
+
+
+def merged(base: Tree, ours: Tree, theirs: Tree) -> Tree | Conflict:
+    """The three-way merge of two trees over their base, path by path."""
+    result, clashes = three_way(base, ours, theirs)
+    return Conflict(files=clashes) if clashes else result
+
+
+def marked(ours: bytes | None, theirs: bytes | None) -> bytes:
+    """A file in conflict as a stopped merge leaves it on disk."""
+    return b"".join(
+        (
+            b"<<<<<<< ours\n",
+            ours or b"",
+            b"=======\n",
+            theirs or b"",
+            b">>>>>>> theirs\n",
+        )
+    )
 
 
 @dataclass
@@ -365,6 +403,32 @@ class ModelGit:
             if len(self.objects[sha].parents) == 1 and self.patch_of(sha) in theirs
         )
 
+    def remerge(self, where: Path, commit: str) -> str:
+        stored = self.objects[self.must(where, commit)]
+        auto, clashes = self.auto_merge(stored.parents)
+        changed = sorted(
+            path
+            for path in auto.keys() | stored.tree.keys()
+            if path in clashes or auto.get(path) != stored.tree.get(path)
+        )
+        return "".join(self.remerged(path, stored.tree.get(path)) for path in changed)
+
+    def auto_merge(self, parents: tuple[str, ...]) -> tuple[Tree, tuple[str, ...]]:
+        """What git would make of the parents alone: the merge of the first two over their
+        base, or the one parent's tree."""
+        if len(parents) < 2:
+            return (self.objects[parents[0]].tree if parents else {}), ()
+        ours, theirs = parents[0], parents[1]
+        common = self.merge_base(self.checkout, ours, theirs)
+        start = self.objects[common].tree if common else {}
+        return three_way(start, self.objects[ours].tree, self.objects[theirs].tree)
+
+    def remerged(self, path: str, body: bytes | None) -> str:
+        """One file of a remerge diff: its name and the lines the commit holds."""
+        lines = (body or b"").decode(errors="replace").splitlines()
+        added = "".join(f"+{line}\n" for line in lines)
+        return f"diff --git a/{path} b/{path}\n{added}"
+
     # ---- GitPlaces ----
 
     def main_checkout(self, start: Path) -> Path:
@@ -414,8 +478,8 @@ class ModelGit:
         self, worktree: Path, onto: str, *, reapply: bool
     ) -> str | Conflict | GitRefused:
         place = self.worktree(worktree)
-        if place.rebase is not None:
-            return GitRefused(said="a rebase is in progress")
+        if place.rebase is not None or place.merging is not None:
+            return GitRefused(said="a rebase or a merge is in progress")
         if not self.clean(worktree):
             return GitRefused(said="cannot rebase: you have unstaged changes")
         head, target = self.must(worktree, "HEAD"), self.must(worktree, onto)
@@ -434,12 +498,56 @@ class ModelGit:
         place.before_rebase = None
         self.lay(worktree, self.objects[self.must(worktree, "HEAD")].tree)
 
+    def merge(
+        self, worktree: Path, ref: str, message: str
+    ) -> str | Conflict | GitRefused:
+        place = self.worktree(worktree)
+        if place.rebase is not None or place.merging is not None:
+            return GitRefused(said="fatal: You have not concluded your merge")
+        if not self.clean(worktree, untracked=False):
+            return GitRefused(
+                said="error: Your local changes would be overwritten by merge"
+            )
+        head, other = self.must(worktree, "HEAD"), self.must(worktree, ref)
+        if other in self.ancestors(head):
+            return head
+        common = self.merge_base(worktree, head, other)
+        start = self.objects[common].tree if common else {}
+        ours, theirs = self.objects[head].tree, self.objects[other].tree
+        result, clashes = three_way(start, ours, theirs)
+        if clashes:
+            place.merging = Merging(other=other, tree=result)
+            marks = {path: marked(ours.get(path), theirs.get(path)) for path in clashes}
+            self.lay(worktree, {**result, **marks})
+            return Conflict(files=clashes)
+        made = self.store(result, (head, other), message)
+        self.branches[place.branch] = made
+        self.lay(worktree, result)
+        return made
+
+    def merge_resolved(self, where: Path, files: dict[str, bytes]) -> str:
+        """The commit of a stopped merge, with `files` as the builder resolved them, as `git
+        add --all` and `git commit --no-edit` make it."""
+        place = self.worktree(where)
+        stopped = place.merging
+        if stopped is None:
+            raise Unanswered("git", "fatal: There is no merge to commit")
+        head = self.must(where, "HEAD")
+        tree = {**stopped.tree, **files}
+        made = self.store(tree, (head, stopped.other), "Merge")
+        self.branches[place.branch] = made
+        place.merging = None
+        self.lay(where, tree)
+        return made
+
     def commit(
         self, worktree: Path, message: str, paths: tuple[str, ...]
     ) -> str | GitRefused:
         if self.refused_commit is not None:
             return GitRefused(said=self.refused_commit)
         place = self.worktree(worktree)
+        if place.merging is not None:
+            return GitRefused(said="fatal: cannot do a partial commit during a merge.")
         head = self.must(worktree, "HEAD")
         tree = dict(self.objects[head].tree)
         disk = self.on_disk(worktree)
@@ -456,7 +564,7 @@ class ModelGit:
     ) -> str | GitRefused:
         there = self.remote.get(branch)
         if there != expect:
-            return GitRefused(said=f"stale info: {branch} is at {there}, not {expect}")
+            return GitRefused(said=f"{LEASE}: {branch} is at {there}, not {expect}")
         self.remote[branch] = self.fetched[branch] = self.must(worktree, commit)
         return self.remote[branch]
 
@@ -513,6 +621,8 @@ class ModelGit:
         return True
 
     def fast_forward(self, checkout: Path, ref: str) -> str | GitRefused:
+        if self.worktree(checkout).merging is not None:
+            return GitRefused(said="fatal: You have not concluded your merge")
         head, target = self.must(checkout, "HEAD"), self.must(checkout, ref)
         if head not in self.ancestors(target):
             return GitRefused(said="fatal: Not possible to fast-forward, aborting.")

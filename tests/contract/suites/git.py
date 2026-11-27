@@ -4,15 +4,16 @@
 A test file subclasses `GitContract` as `Test...` and gives `world`: a repository with one
 commit of `README.md` on `main`, pushed and fetched, its main checkout, a folder for worktrees,
 a hand that pushes a commit as someone else (the teammate, by name), one that makes a merge
-commit in a worktree (`git merge --no-ff`, with files edited in the merge itself), and one that
-puts a commit hook in place that refuses every commit.
+commit in a worktree (`git merge --no-ff`, with files edited in the merge itself), one that
+commits a merge that stopped on a conflict with the files as a builder resolved them, and one
+that puts a commit hook in place that refuses every commit.
 """
 
 from typing import TYPE_CHECKING, Protocol
 
 import pytest
 
-from lem.ports.git_facts import Conflict, GitRefused
+from lem.ports.git_facts import LEASE, Conflict, GitRefused
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -37,6 +38,7 @@ class GitWorld(Protocol):
         self, branch: str, files: dict[str, bytes | None], start: str = "main"
     ) -> str: ...
     def merge_in(self, where: Path, ref: str, files: dict[str, bytes]) -> str: ...
+    def resolve(self, where: Path, files: dict[str, bytes]) -> str: ...
     def refuse_commits(self, said: str) -> None: ...
     def ignore(self, path: str) -> None: ...
     def after_reset_tip_check(
@@ -168,6 +170,7 @@ class GitContract:
         third = commit_file(world, where, "a.txt", b"aaa\n")
         refused = world.git.push(where, "fix-the-login", second, commit=third)
         assert isinstance(refused, GitRefused)
+        assert refused.said.startswith(LEASE)
         world.git.fetch(where)
         assert world.git.remote_head(where, "fix-the-login") == teammate
         assert world.git.tip(where, "HEAD") == third
@@ -470,3 +473,60 @@ class GitContract:
         assert world.git.reset(where, target, current) == target
         assert path.read_bytes() == b"local only\n"
         assert (where / "env/tracked").read_bytes() == b"tracked\n"
+
+    def test_a_merge_makes_a_merge_commit_of_the_branch_and_the_ref(
+        self, tmp_path: Path
+    ) -> None:
+        world = self.world(tmp_path)
+        where = task_worktree(world)
+        tip = commit_file(world, where, "a.txt", b"a\n")
+        pushed = world.outside_commit("main", {"other.txt": b"o\n"})
+        world.git.fetch(where)
+        message = "Merge origin/main into fix-the-login"
+        made = world.git.merge(where, pushed, message)
+        assert isinstance(made, str), made
+        assert world.git.tip(where, "HEAD") == made
+        last = world.git.commits(where, tip, made)[-1]
+        assert (last.sha, last.parents, last.subject) == (made, (tip, pushed), message)
+        assert world.git.show(where, made, "a.txt") == b"a\n"
+        assert (where / "other.txt").read_bytes() == b"o\n"
+        assert world.git.clean(where)
+        assert not world.git.remerge(where, made).strip()
+        assert world.git.merge(where, pushed, message) == made
+
+    def test_a_conflicting_merge_waits_for_a_builder_and_its_resolution_is_the_remerge(
+        self, tmp_path: Path
+    ) -> None:
+        world = self.world(tmp_path)
+        where = task_worktree(world)
+        tip = commit_file(world, where, "README.md", b"ours\n")
+        theirs = world.outside_commit("main", {"README.md": b"theirs\n"})
+        world.git.fetch(where)
+        stopped = world.git.merge(where, theirs, "Merge origin/main")
+        assert stopped == Conflict(files=("README.md",))
+        assert world.git.tip(where, "HEAD") == tip
+        assert not world.git.clean(where)
+        partial = world.git.commit(where, "a partial commit", ("README.md",))
+        assert isinstance(partial, GitRefused)
+        resolved = world.resolve(where, {"README.md": b"resolved\n"})
+        assert world.git.commits(where, tip, resolved)[-1].parents == (tip, theirs)
+        shown = world.git.remerge(where, resolved)
+        assert "README.md" in shown
+        assert "+resolved" in shown
+
+    def test_a_merge_git_refuses_leaves_the_worktree_as_it_was(
+        self, tmp_path: Path
+    ) -> None:
+        world = self.world(tmp_path)
+        where = task_worktree(world)
+        tip = commit_file(world, where, "a.txt", b"a\n")
+        theirs = world.outside_commit("main", {"README.md": b"theirs\n"})
+        world.git.fetch(where)
+        (where / "README.md").write_bytes(b"unsaved\n")
+        refused = world.git.merge(where, theirs, "Merge origin/main")
+        assert isinstance(refused, GitRefused)
+        assert world.git.tip(where, "HEAD") == tip
+        assert (where / "README.md").read_bytes() == b"unsaved\n"
+        (where / "README.md").write_bytes(FILES["README.md"])
+        assert world.git.clean(where)
+        assert isinstance(world.git.merge(where, theirs, "Merge origin/main"), str)

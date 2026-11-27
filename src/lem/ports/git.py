@@ -51,15 +51,20 @@ class GitFacts(GitHistory, GitPlaces, Protocol):
 
 
 class GitRewrite(Protocol):
-    """The acts on a task's branch: fetch, rebase and its abort, commit (which a hook may
-    refuse), and the push of the commit named, never of whatever the branch holds then, with a
-    lease on the commit Lem pushed last (`landing.md` H 3), None when the branch is new."""
+    """The acts on a task's branch: fetch, rebase and its abort, a merge commit of `ref` into
+    the worktree's branch (which stops on a conflict and leaves it to a builder, or is
+    refused and leaves nothing), commit (which a hook may refuse), and the push of the commit
+    named, never of whatever the branch holds then, with a lease on the commit Lem pushed last
+    (`landing.md` H 3), None when the branch is new."""
 
     def fetch(self, where: Path) -> None: ...
     def rebase(
         self, worktree: Path, onto: str, *, reapply: bool
     ) -> Sha | Conflict | GitRefused: ...
     def abort(self, worktree: Path) -> None: ...
+    def merge(
+        self, worktree: Path, ref: str, message: str
+    ) -> Sha | Conflict | GitRefused: ...
     def commit(
         self, worktree: Path, message: str, paths: tuple[str, ...]
     ) -> Sha | GitRefused: ...

@@ -254,6 +254,23 @@
             }
           ]
         },
+        "sync": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
+        },
         "read": {
           "options": {
             "--help": {
@@ -1794,6 +1811,7 @@
                 "conflict",
                 "refused",
                 "queue",
+                "sync",
                 "night",
                 "owner",
                 "stopped"
@@ -1973,6 +1991,7 @@
                 "conflict",
                 "refused",
                 "queue",
+                "sync",
                 "owner",
                 "inbox",
                 "status"
