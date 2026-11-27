@@ -56,13 +56,19 @@ def gh_row(look: Look) -> Row:
     return msgspec.structs.replace(row, signed_in=False, detail=detail)
 
 
+def cronn_folder(look: Look) -> Path:
+    """cronn's folder: `CRONN_CONFIG_DIR`, else `~/.config/cronn`."""
+    named = look.environ.get("CRONN_CONFIG_DIR")
+    return Path(named) if named else look.home / ".config" / "cronn"
+
+
 def cronn_port(look: Look) -> int | None:
     """The port of cronn's status, from `cronn.env` of its folder; None when no line names
     one."""
-    named = look.environ.get("CRONN_CONFIG_DIR")
-    folder = Path(named) if named else look.home / ".config" / "cronn"
     try:
-        text = (folder / "cronn.env").read_text(encoding="utf-8", errors="replace")
+        text = (cronn_folder(look) / "cronn.env").read_text(
+            encoding="utf-8", errors="replace"
+        )
     except OSError:
         return None
     said = [line for line in text.splitlines() if line.startswith(CRONN_PORT)]

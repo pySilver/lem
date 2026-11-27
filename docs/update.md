@@ -14,8 +14,8 @@ Then start a new session, which also replaces the board server. Update the plugi
 repository: one board server serves them all. `lem doctor` shows each one you missed.
 
 - **The app and the plugin must have the same release.** When they differ, a command of Lem stops with
-  one line that names the part that is behind. `lem doctor`, `lem help` and `lem version` still
-  answer.
+  one line that names the part that is behind. `lem doctor`, `lem help`, `lem version` and
+  `lem uninstall` still answer.
 - **Auto-update** of the plugin is off by default. To turn it on, type `/plugin`, open
   **Marketplaces**, select `lem`, and turn on auto-update. Then update the app too.
 - **A live session keeps its old plugin loaded.** If the app has a different release, Lem refuses
@@ -38,13 +38,37 @@ The new session asks for your yes to the criteria.
 
 ## Remove
 
-1. Merge or drop each open task.
-2. Remove the cronn jobs of this repository.
-3. If no other repository uses Lem, type `/lem serve tailscale off` and `/lem serve stop`.
-4. Run `claude plugin uninstall lem@lem --scope project`.
-5. Run `claude plugin marketplace remove lem --scope project`.
-6. Remove Lem's allow rules from `.claude/settings.local.json`.
-7. Run `git rm -r .lem`, and commit.
-8. Delete the folder `.lem/`.
-9. If no other repository uses Lem, run `brew uninstall lem`, and delete `~/.config/lem/` and
-   `$TMPDIR/lem-ask/`.
+`lem uninstall` removes what Lem put on this computer. First close each Claude Code session of a
+repository that uses Lem: a session that runs Lem after the uninstall starts the board server
+again. Then run it in a terminal:
+
+```bash
+lem uninstall
+```
+
+1. Lem reads the repositories of the board, their tasks, the Claude Code settings and the cronn
+   jobs. It shows what it will remove.
+2. Type `yes` or `all`.
+    - `yes` keeps `.lem/state/` and `.lem/worktrees/` of each repository.
+    - `all` also removes them. Lem removes each worktree with `git worktree remove`.
+3. Lem does the steps in this order, and it shows each step:
+    1. It stops the board server and closes the tailnet door.
+    2. It removes the plugin `lem@lem` and the marketplace `lem` from each Claude Code scope.
+    3. It removes `Bash(lem *)` and the `Read` rule of `lem doctor` from the Claude Code settings.
+    4. It removes the home folder of Lem, `~/.config/lem/`, and `$TMPDIR/lem-ask/`.
+4. Do the steps that Lem gives at the end:
+    - Commit each `.claude/settings.json` that Lem names.
+    - Delete the cronn jobs that Lem names from the `crontab.yml` of cronn.
+    - Run `brew uninstall pySilver/tap/lem`.
+
+An open task stops `lem uninstall`. Merge or drop each open task first. With `--force`, Lem
+continues and keeps the worktree, the branch and the `.lem/state/` of each open task.
+
+`lem uninstall --yes` asks no question and keeps `.lem/state/` and `.lem/worktrees/`. Without a
+terminal, `lem uninstall` stops if you do not add `--yes`.
+
+The task branches stay. The other files of `.lem/` also stay: the settings, the profile and the
+cast are the team's files in git.
+
+When a step fails, Lem does the other steps and gives the fix. Lem then keeps its home folder. Do
+the fix, and run `lem uninstall` again.

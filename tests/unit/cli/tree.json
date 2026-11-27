@@ -3075,6 +3075,28 @@
       },
       "positionals": []
     },
+    "uninstall": {
+      "options": {
+        "--help": {
+          "aliases": [
+            "-h"
+          ],
+          "value": false,
+          "required": false
+        },
+        "--yes": {
+          "aliases": [],
+          "value": false,
+          "required": false
+        },
+        "--force": {
+          "aliases": [],
+          "value": false,
+          "required": false
+        }
+      },
+      "positionals": []
+    },
     "issue": {
       "options": {
         "--help": {

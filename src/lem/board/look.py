@@ -2,10 +2,10 @@
 `serve.json` in Lem's home folder names no process that lives (`__main__.look_for_server` on
 `main`).
 
-`help` and `version` answer before it, and `serve`, `board`, `doctor`, `ask` and `jev` take no
-look: they ask the server their own way, or need none. `LEM_SERVE=off` stops it. The start is
-`lem serve ensure` of this install, with its output in `serve.log`, so that the replace rule
-decides; every failure is silent, since no command waits for the board or fails by it.
+`help` and `version` answer before it, and `serve`, `board`, `doctor`, `ask`, `jev` and `uninstall`
+take no look: they ask the server their own way, or need none. `LEM_SERVE=off` stops it.
+The start is `lem serve ensure` of this install, with its output in `serve.log`, so that the
+replace rule decides; every failure is silent, since no command waits for the board or fails by it.
 """
 
 import contextlib
@@ -23,7 +23,18 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
 
-NO_LOOK = ("serve", "board", "doctor", "ask", "jev", "help", "--help", "-h", "version")
+NO_LOOK = (
+    "serve",
+    "board",
+    "doctor",
+    "ask",
+    "jev",
+    "uninstall",
+    "help",
+    "--help",
+    "-h",
+    "version",
+)
 SERVE = "serve.json"
 LOG = "serve.log"
 

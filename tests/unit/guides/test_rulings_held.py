@@ -164,7 +164,7 @@ def test_the_rules_of_a_project_and_another_programs_settings_stay_where_they_ar
 def test_lems_docs_do_not_speak_for_another_tool() -> None:
     remove = text("docs/update.md").split("## Remove", 1)[1]
     assert ".revmux" not in remove
-    assert "cronn jobs of this repository" in remove
+    assert "Delete the cronn jobs that Lem names" in remove
 
 
 def test_no_history_and_no_reasons_in_a_text_for_a_reader() -> None:

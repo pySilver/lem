@@ -1,7 +1,7 @@
 """The command `lem`: the version check, then the command tree on the arguments it was given.
 
-`help` and `version` answer first, and `doctor` whatever the versions; the first word is read past
-the root's `--repo PATH`. In a session whose
+`help` and `version` answer first, and `doctor` and `uninstall` whatever the versions.
+The first word is read past the root's `--repo PATH`. In a session whose
 `session-start` hook named Lem's plugin in `LEM_PLUGIN_ROOT`, every other command refuses with
 the one line that names the half that is behind, when the plugin and this app are two versions
 (the design's part 5). Then it starts the board server when none lives (`board/look.py`).
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
 # The commands that answer whatever the plugin's version.
-UNCHECKED = ("help", "--help", "-h", "version", "doctor")
+UNCHECKED = ("help", "--help", "-h", "version", "doctor", "uninstall")
 
 
 def first_word(argv: list[str]) -> str | None:

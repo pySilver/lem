@@ -72,10 +72,15 @@ def allowing(look: Look, root: Path) -> Path | None:
     return None
 
 
+def read_line(look: Look) -> str:
+    """The exact permission to read Lem's own files."""
+    folder = allowed_folder(look)
+    return f"Read(/{folder}{ANY})"
+
+
 def reads_row(look: Look) -> Row:
     """Whether a settings file of Claude Code allows the reads of Lem's files."""
     root = paths.root().resolve()
-    folder = allowed_folder(look)
     held = allowing(look, root)
     user = look.home / ".claude" / "settings.json"
     detail = f"no allow rule covers {root}"
@@ -94,5 +99,5 @@ def reads_row(look: Look) -> Row:
             "The owner can allow the read or put the line under "
             f'"permissions", "allow" in {user} once'
         ),
-        line=f"Read(/{folder}{ANY})",
+        line=read_line(look),
     )
