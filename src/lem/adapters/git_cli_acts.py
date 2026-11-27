@@ -1,7 +1,9 @@
 """The acts of the `Git` port through real git: a task branch's rewrite (`GitRewrite`) and the
 worktrees and branches (`GitBranches`).
 
-A push sends the commit named, never what the branch holds by then, with a lease on the commit
+A merge makes a merge commit of the ref named, never a fast-forward and never a rebase; one that
+stops on a conflict stays for a builder to resolve, and one git refuses leaves nothing behind. A
+push sends the commit named, never what the branch holds by then, with a lease on the commit
 Lem pushed last, or on no branch at all when it is new (`landing.md` H 3); a branch moves back
 or is deleted only at the commit named, and is never deleted while a worktree has it.
 """
@@ -12,7 +14,7 @@ from lem.adapters.git_cli_facts import clean
 from lem.adapters.git_cli_ref import reset_under_lock
 from lem.adapters.git_cli_reset import ignored_collision
 from lem.adapters.git_cli_shell import GIT, QUIET, Shell, all_words, last_words
-from lem.adapters.git_cli_stops import conflicted, rebase_folder
+from lem.adapters.git_cli_stops import conflicted, merge_stopped, rebase_folder
 from lem.ports.faults import Unanswered
 from lem.ports.git_facts import Conflict, GitRefused
 
@@ -24,7 +26,7 @@ WORKTREE = "worktree"
 
 
 class Rewrite(Shell):
-    """Fetch, rebase and its abort, commit, and a push with a lease."""
+    """Fetch, rebase and its abort, a merge commit, commit, and a push with a lease."""
 
     def fetch(self, where: Path) -> None:
         self.said(where, "fetch", QUIET, "--prune", "origin")
@@ -43,6 +45,21 @@ class Rewrite(Shell):
 
     def abort(self, worktree: Path) -> None:
         self.said(worktree, "rebase", "--abort")
+
+    def merge(
+        self, worktree: Path, ref: str, message: str
+    ) -> str | Conflict | GitRefused:
+        made = ("merge", QUIET, "--no-ff", "--no-edit", "--message", message, ref)
+        ran = self.tried(worktree, *made)
+        if not ran.returncode:
+            return self.head(worktree)
+        stopped = merge_stopped(self, worktree)
+        if stopped:
+            return Conflict(files=stopped)
+        if stopped is not None:
+            # a hook refused the merge's commit: nothing of it stays
+            self.said(worktree, "merge", "--abort")
+        return GitRefused(said=all_words(ran.stderr or ran.stdout))
 
     def commit(
         self, worktree: Path, message: str, paths: tuple[str, ...]

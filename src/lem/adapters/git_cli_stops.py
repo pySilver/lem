@@ -1,5 +1,5 @@
-"""A rebase that stopped, as the `git` adapter reads it: whether one is in progress in a
-worktree, and the files it waits on."""
+"""A rebase or a merge that stopped, as the `git` adapter reads it: whether one is in progress in
+a worktree, and the files it waits on."""
 
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 # The folders of a worktree's own git folder that hold a rebase in progress.
 REBASE_FOLDERS = ("rebase-merge", "rebase-apply")
 ABSOLUTE = "--path-format=absolute"
+UNMERGED = "--diff-filter=U"
 
 
 def rebase_folder(shell: Shell, where: Path) -> Path | None:
@@ -30,15 +31,28 @@ def conflicted(shell: Shell, where: Path) -> tuple[str, ...]:
     none unmerged, the files the stopped commit staged: git's recorded resolution of a
     conflict, which it stages by itself with `rerere.autoupdate`, still waits for a
     builder."""
-    for which in ("--diff-filter=U", "--cached"):
-        ran = shell.raw(where, "diff", which, "-z", "--name-only")
-        if ran.returncode:
-            said = ran.stderr.decode(errors="replace").strip()
-            raise Unanswered(GIT, said or f"git diff exited {ran.returncode}")
-        found = listed(ran.stdout)
+    for which in (UNMERGED, "--cached"):
+        found = named_by(shell, where, which)
         if found:
-            return tuple(sorted(found))
+            return found
     return ()
+
+
+def named_by(shell: Shell, where: Path, which: str) -> tuple[str, ...]:
+    """The files `git diff WHICH` names in `where`, shown and sorted."""
+    ran = shell.raw(where, "diff", which, "-z", "--name-only")
+    if ran.returncode:
+        said = ran.stderr.decode(errors="replace").strip()
+        raise Unanswered(GIT, said or f"git diff exited {ran.returncode}")
+    return tuple(sorted(listed(ran.stdout)))
+
+
+def merge_stopped(shell: Shell, where: Path) -> tuple[str, ...] | None:
+    """The files a merge that stopped in `where` left unmerged; an empty tuple for a merge
+    that stopped with none (a hook that refused its commit), None for no merge in progress."""
+    if shell.commit_at(where, "MERGE_HEAD") is None:
+        return None
+    return named_by(shell, where, UNMERGED)
 
 
 def too_old(shell: Shell, where: Path, said: bytes) -> str:

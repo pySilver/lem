@@ -29,6 +29,9 @@ class ModelWorld:
     def merge_in(self, where: Path, ref: str, files: dict[str, bytes]) -> str:
         return self.git.merge_in(where, ref, files)
 
+    def resolve(self, where: Path, files: dict[str, bytes]) -> str:
+        return self.git.merge_resolved(where, files)
+
     def refuse_commits(self, said: str) -> None:
         self.git.refused_commit = said
 
