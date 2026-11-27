@@ -1,6 +1,7 @@
 """The same `lem task open` again: a retry of the same words under the same slug passes, and
 other words, another ticket or another feature under that slug are another request, refused. A
-part found again joins its feature when a run cut off left that out (`feature.py`).
+part found again before its feature waits for it goes on to the open's fetch and its join
+(`feature.py`).
 """
 
 from typing import TYPE_CHECKING
@@ -15,7 +16,6 @@ if TYPE_CHECKING:
     from lem.records.record import Record
     from lem.records.task import Task
     from lem.records.tickets import Ticket, Tracker
-    from lem.store.places import Workspace
 
 
 def again(
@@ -51,20 +51,28 @@ def again(
 
 
 def existing(
-    found: Workspace,
-    every: tuple[Record, ...],
-    asked: Asked,
-    kind: Tracker | None,
+    every: tuple[Record, ...], asked: Asked, kind: Tracker | None
 ) -> Task | None:
-    """The task an item already has on the board, or the same open asked for again; a part
-    found again joins its feature when a run cut off left that out."""
+    """The task an item already has on the board, or the same open asked for again; refused
+    when the same slug names another feature."""
     retry = earlier(every, asked, kind)
     if retry is None:
         return None
     refused = part_of.same_part(retry, asked.part_of)
     if retry.slug == asked.slug and refused is not None:
         raise refused
-    feature.joined(found, every, retry)
+    return retry
+
+
+def done(
+    every: tuple[Record, ...],
+    asked: Asked,
+    kind: Tracker | None,
+) -> Task | None:
+    """The task found again when nothing is left to write for it (`feature.waiting`)."""
+    retry = existing(every, asked, kind)
+    if retry is None or not feature.waiting(every, retry):
+        return None
     return retry
 
 

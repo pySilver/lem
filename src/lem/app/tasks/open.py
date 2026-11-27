@@ -3,8 +3,9 @@
 The task opens `shaping`, or `queued` behind the tasks `--after` names, with the owner's words as
 he gave them. A ticket, a backlog item and the dropped task it goes on from are claimed under the
 lock with the scan of every record (`model/task/claim.py`); a part joins its feature's `after`
-there too (`feature.py`). The same words again under the same slug are a retry and pass; other
-words are another request under the same name (`open_again.py`).
+there too, before its own record is published (`feature.py`). The same words again under the
+same slug are a retry and pass; other words are another request under the same name
+(`open_again.py`).
 """
 
 from typing import TYPE_CHECKING
@@ -45,7 +46,7 @@ def opened(folder: Path, asked: Asked) -> Opened:
     if asked.part_of is not None and asked.ticket is not None:
         raise part_of.ticketed(asked.slug)
     with locks.held(places.locks_folder(state) / workspace.LOCK):
-        retry = open_again.existing(found, tasks.every(state), asked, kind)
+        retry = open_again.done(tasks.every(state), asked, kind)
         if retry is not None:
             return made_by(state, retry, made=False)
     return published(found, asked, kind)
@@ -54,24 +55,29 @@ def opened(folder: Path, asked: Asked) -> Opened:
 def published(found: places.Workspace, asked: Asked, kind: Tracker | None) -> Opened:
     """Check origin for the new task's branch, then claim and write its record."""
     said = taken.checked(found, asked.slug, asked.branch)
+    branch = feature.fetched(found, asked)
     with locks.held(places.locks_folder(found.state) / workspace.LOCK):
-        return created(found, asked, kind, said)
+        return created(found, asked, kind, (said, branch))
 
 
 def created(
-    found: places.Workspace, asked: Asked, kind: Tracker | None, said: str | None
+    found: places.Workspace,
+    asked: Asked,
+    kind: Tracker | None,
+    seen: tuple[str | None, str | None],
 ) -> Opened:
-    """Under the claim lock, return a prior start or check the item and publish."""
+    """Under the claim lock, return a prior start or check the item, join a part's feature,
+    and publish; `seen` is the line of origin's check and the feature's branch on origin."""
     every = tasks.every(found.state)
-    retry = open_again.existing(found, every, asked, kind)
+    retry = open_again.existing(every, asked, kind)
     if retry is not None:
+        feature.joined(found, retry, asked, seen[1])
         return made_by(found.state, retry, made=False)
-    joining = feature.joinable(found, every, asked)
-    record = fresh(found, asked, kind, clock.now())
-    written = workspace.published(found.state, claim.claimed(record, every, kind))
-    if joining is not None:
-        feature.added(found, joining, asked.slug)
-    return made_by(found.state, written.task, said=said)
+    opening = fresh(found, asked, kind, clock.now())
+    record = claim.claimed(opening, every, kind)
+    feature.joined(found, record.task, asked, seen[1])
+    written = workspace.published(found.state, record)
+    return made_by(found.state, written.task, said=seen[0])
 
 
 def made_by(

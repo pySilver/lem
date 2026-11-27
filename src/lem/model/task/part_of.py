@@ -10,7 +10,7 @@ branch. Each rule here takes the records and the facts git gave, and refuses wit
 
 from typing import TYPE_CHECKING
 
-from lem.kernel.errors import Refusal
+from lem.kernel.errors import Fault, Refusal
 from lem.model.task.claim import ENDED
 
 if TYPE_CHECKING:
@@ -72,20 +72,29 @@ def joinable(part: str, feature: Task) -> Refusal | None:
     return None
 
 
-def startable(part: str, feature: Task) -> Refusal | None:
-    """Why a part may not start from its feature's branch, or None: the feature ended."""
-    if feature.status not in ENDED:
+def startable(part: Task, feature: Task) -> Refusal | None:
+    """Why a part may not start from its feature's branch, or None: the feature ended. A part
+    that ended is looked at only to clean up after it, so its feature may have ended too."""
+    if part.status in ENDED or feature.status not in ENDED:
         return None
     return Refusal(
         CODE,
-        f"{part} is a part of {feature.slug}, which is {feature.status}, so nothing lands on "
-        "its branch any more",
-        f"{DROP.format(part=part)}, or asks for its work again as a task of its own",
+        f"{part.slug} is a part of {feature.slug}, which is {feature.status}, so nothing "
+        "lands on its branch any more",
+        f"{DROP.format(part=part.slug)}, or asks for its work again as a task of its own",
     )
 
 
-def no_branch(part: str, feature: Task) -> Refusal:
-    """The refusal of a part whose feature has no branch on origin."""
+def named(part: Task) -> str:
+    """The feature the part `part` names; a fault for a task that is no part."""
+    if part.part_of is None:
+        raise Fault(f"{part.slug} is no part of a feature")
+    return part.part_of
+
+
+def no_branch(part: str, feature: Task, said: str | None = None) -> Refusal:
+    """The refusal of a part whose feature has no branch on origin; `said` is why the fetch
+    of origin did not run, when it did not."""
     branch = feature.branch
     if branch is None:
         return Refusal(
@@ -94,9 +103,17 @@ def no_branch(part: str, feature: Task) -> Refusal:
             f"lem task worktree {feature.slug} makes its branch; push it to origin, then "
             "run the step again",
         )
+    if said is not None:
+        return Refusal(
+            CODE,
+            f"{part} is a part of {feature.slug}, and git has not seen the branch {branch} "
+            f"on origin: {said}",
+            f"git fetch origin brings {branch}, then run the step again",
+        )
     return Refusal(
         CODE,
-        f"{part} is a part of {feature.slug}, and origin has no branch {branch}",
+        f"{part} is a part of {feature.slug}, and origin has no branch {branch}, also "
+        "after a fetch",
         f"push {branch} to origin, then run the step again; or "
         + DROP.format(part=part),
     )
