@@ -53,7 +53,10 @@ def keep(
         won, kept = ends.finish(folder, asked, proposal, raw)
     except Refusal as refusal:
         return {"outcome": "refused", "pageID": page, SAID: refusal.why}
-    return final_answer(folder, page, kept, None if won else proposal)
+    # After a board answer, a `dismissed` is the close of the page by the board server or the
+    # waiter, never the owner's later act.
+    closed = kept.source == "board" and proposal.option == "dismissed"
+    return final_answer(folder, page, kept, None if won or closed else proposal)
 
 
 def final_answer(

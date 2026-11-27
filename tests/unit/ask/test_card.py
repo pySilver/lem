@@ -19,7 +19,7 @@ from lem.app.asking.scripts import hashed
 from lem.app.owner import cards
 from lem.app.sessions import acts, log
 from lem.cli import lazy
-from lem.cli.ask import waiting
+from lem.cli.ask import card_wait, waiting
 from lem.kernel import paths
 from lem.kernel.errors import Refusal
 from lem.model.owner import held
@@ -682,3 +682,36 @@ def test_a_losing_board_answer_closes_nothing(
         got = client.post(ROUTE + "/answer", json=posted(digest), headers=ORIGIN)
     assert got.status_code == 409
     assert closes == []
+
+
+@pytest.mark.parametrize("later", ["dismissed", "submitted"])
+def test_a_close_after_the_board_answer_is_no_later_act_of_the_owner(
+    board: Board,
+    terminal: Agterm,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    later: str,
+) -> None:
+    show(terminal, capsys)
+    with board.main() as client:
+        digest = client.head(ROUTE).headers["etag"].strip('"')
+        got = client.post(ROUTE + "/answer", json=posted(digest), headers=ORIGIN)
+    assert got.status_code == 200
+    # The poll read the record before the board's answer reached it, and agterm after.
+    monkeypatch.setattr(card_wait, "recorded", lambda *_args: None)
+    terminal.outcome = later
+    terminal.payload = json.dumps(
+        {
+            "status": "answered",
+            "answers": {"answer": {"selected": ["o1"], "labels": ["Keep"]}},
+        }
+    )
+    assert lazy.main(["ask", "wait", PAGE, "--no-status"]) == 0
+    picked = json.loads(capsys.readouterr().out)["result"]
+    assert picked["from"] == "board"
+    assert picked["answers"]["answer"]["labels"] == ["Write a dash"]
+    assert "Write a dash was recorded on the board" in picked["said"]
+    if later == "dismissed":
+        assert "later act" not in picked["said"]
+    else:
+        assert "The later act in the session was Keep." in picked["said"]
