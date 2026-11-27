@@ -2,8 +2,9 @@
 
     lem session wake SLUG --why WHY [--head SHA] [--session ID]
 
-It sends `lem: SLUG WHY` to the task's live session, or opens one (`app/sessions/waking.py`);
-`--why status` is the guard's status message, to the live session only
+It sends `lem: SLUG WHY` to the task's live session, or opens one (`app/sessions/waking.py`).
+`--why sync` names with `--head` the commit of origin's base that a feature is to take in
+(`board/duties/sync.py`). `--why status` is the guard's status message, to the live session only
 (`app/sessions/guard_steps.py`).
 """
 
@@ -24,7 +25,9 @@ if TYPE_CHECKING:
 
 # The guard's own wake, its status message, which goes to the live session it names alone.
 GUARD: Step = "status"
-type Why = Literal["merged", "conflict", "refused", "queue", "owner", "inbox", "status"]
+type Why = Literal[
+    "merged", "conflict", "refused", "queue", "sync", "owner", "inbox", "status"
+]
 
 
 class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
@@ -60,7 +63,10 @@ COMMAND = click.Command(
     params=[
         click.Argument(["slug"]),
         click.Option(["--why"], required=True, type=choice(Why), help="why it wakes"),
-        click.Option(["--head"], help="the pull request's head the wake is for"),
+        click.Option(
+            ["--head"],
+            help="the pull request's head the wake is for, or the base commit of a sync",
+        ),
         click.Option(
             ["--session"], help="with --why status: the session the line is for"
         ),

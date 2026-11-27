@@ -1,5 +1,6 @@
 """Why a step of a task may not run now: the step lock's refusals (`land.held_refusal` and
-`land.step_lock` on `main`), with the way on each names."""
+`land.step_lock` on `main`), with the way on each names. A step is a verb of `lem land`, or a
+command of its own that names its noun (`task sync`)."""
 
 import shlex
 from typing import TYPE_CHECKING
@@ -28,7 +29,9 @@ def held_why(slug: str, step: str, holder: Holder) -> str:
             f"the checks of {slug} run ({when}), and their end comes first: the session "
             f"that started them goes on when they end, and this step waits for it; {status}"
         )
-    return f"another step of {slug} runs now, `lem land {holder.step} {slug}` ({when})"
+    return (
+        f"another step of {slug} runs now, `lem {command(holder.step)} {slug}` ({when})"
+    )
 
 
 def refusal(slug: str, step: str, holder: Holder | None) -> Refusal:
@@ -38,7 +41,9 @@ def refusal(slug: str, step: str, holder: Holder | None) -> Refusal:
     else:
         why = held_why(slug, step, holder)
     return Refusal(
-        "step-held", why, f"wait for it to end, then run lem land {step} {slug} again"
+        "step-held",
+        why,
+        f"wait for it to end, then run lem {command(step)} {slug} again",
     )
 
 
@@ -47,6 +52,12 @@ def unopened(path: Path, slug: str, step: str, error: OSError) -> Refusal:
     return Refusal(
         "step-lock",
         f"the step lock {path} cannot be opened ({error.strerror})",
-        f"it holds no state: remove it (rm -r {shlex.quote(str(path))}), then run lem land "
-        f"{step} {slug} again",
+        f"it holds no state: remove it (rm -r {shlex.quote(str(path))}), then run lem "
+        f"{command(step)} {slug} again",
     )
+
+
+def command(step: str) -> str:
+    """The words of `lem` that run the step: `land STEP`, or the step itself when it names
+    its noun."""
+    return step if " " in step else f"land {step}"

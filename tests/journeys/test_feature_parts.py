@@ -120,9 +120,13 @@ def feature(capsys: Capsys, world: World) -> None:
     world.repo.outside_commit(FEATURE_BRANCH, {"FEATURE.md": b"the feature\n"})
 
 
-def shaped(capsys: Capsys, world: World, slug: str, ask: str) -> None:
-    """A part of `x`, opened, read, its criterion approved, and its worktree made."""
-    ok(capsys, world, "task", "open", slug, "--ask", ask, "--part-of", FEATURE)
+def shaped(
+    capsys: Capsys, world: World, slug: str, ask: str, part_of: str | None = FEATURE
+) -> None:
+    """A part of `x`, or with no `part_of` a task of its own, opened, read, its criterion
+    approved, and its worktree made."""
+    joins = ("--part-of", part_of) if part_of else ()
+    ok(capsys, world, "task", "open", slug, "--ask", ask, *joins)
     words = ("--type", "docs", "--why", "a line of the docs", "--track", "small")
     ok(capsys, world, "task", "read", slug, *words, "--then", "fast")
     (folder_of(world, slug) / "criteria.md").write_text(CRITERIA)

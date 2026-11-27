@@ -9,6 +9,7 @@ VERBS = (
     ("plan-file", "lem.cli.task.plan_file"),
     ("move", "lem.cli.task.move"),
     ("red-base", "lem.cli.task.red_base"),
+    ("sync", "lem.cli.task.sync"),
     ("read", "lem.cli.task.read"),
     ("span", "lem.cli.task.span"),
     ("planned", "lem.cli.task.planned"),

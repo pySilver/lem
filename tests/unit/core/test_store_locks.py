@@ -122,6 +122,18 @@ def test_a_lock_named_by_no_holder_is_refused_without_a_name(tmp_path: Path) -> 
     )
 
 
+def test_a_step_that_names_its_noun_is_named_by_its_own_command(tmp_path: Path) -> None:
+    tasks.create(tmp_path, record())
+    with (
+        steps.step(tmp_path, "fix-the-login", "task sync", MOMENT),
+        pytest.raises(Refusal) as refused,
+        steps.step(tmp_path, "fix-the-login", "task sync", MOMENT),
+    ):
+        pass
+    assert "`lem task sync fix-the-login`" in refused.value.why
+    assert refused.value.fix.endswith("run lem task sync fix-the-login again")
+
+
 def test_a_folder_at_the_lock_is_refused_with_its_repair(tmp_path: Path) -> None:
     tasks.create(tmp_path, record())
     lock = tmp_path / "tasks" / "fix-the-login" / "step.lock"

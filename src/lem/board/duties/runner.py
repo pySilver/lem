@@ -39,6 +39,7 @@ DUTIES = (
     "lem.board.duties.merge",
     "lem.board.duties.conflict",
     "lem.board.duties.queue",
+    "lem.board.duties.sync",
     "lem.board.duties.guard",
     "lem.board.duties.prune",
 )

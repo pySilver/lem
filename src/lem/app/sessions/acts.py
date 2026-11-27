@@ -13,7 +13,15 @@ from lem.records.base import Moment, Tagged
 
 type CloseWhy = Literal["handoff", "ended", "owner"]
 type WakeWhy = Literal[
-    "merged", "conflict", "refused", "queue", "owner", "inbox", "status", "replaced"
+    "merged",
+    "conflict",
+    "refused",
+    "queue",
+    "sync",
+    "owner",
+    "inbox",
+    "status",
+    "replaced",
 ]
 
 
@@ -40,7 +48,8 @@ class Close(Tagged, tag="close", frozen=True, kw_only=True):
 
 class Wake(Tagged, tag="wake", frozen=True, kw_only=True):
     """A line `lem: SLUG WHY` that Lem sent to the session; the pull request's head it was
-    for, and whether the session's signs did not read when the guard sent it (`unread`)."""
+    for, or for `sync` the commit of origin's base the feature is to take in, and whether the
+    session's signs did not read when the guard sent it (`unread`)."""
 
     at: Moment
     session: str

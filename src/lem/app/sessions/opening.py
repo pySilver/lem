@@ -9,7 +9,8 @@ session whose agent ended leaves a shell, and the new one opens beside it. Other
 (the plugin, the folder's trust, its settings) is the developer's: the agent works in the task's
 worktree by its path. Its seat is `seats.session`; the harness writes the launch line, with the
 compaction number and `--plugin-dir` where the project has no install of the plugin. The open is
-put on record at once: the session exists from then on.
+put on record at once: the session exists from then on. A queued task opens only once its turn
+came (`queued.behind`), but for a sync: a feature takes in its base while it waits.
 """
 
 from typing import TYPE_CHECKING
@@ -29,6 +30,9 @@ if TYPE_CHECKING:
     from lem.records.task import Task
 
 LOCK = "session.lock"
+# The one open of a queued task before its turn: a feature takes in its base while it waits for
+# its parts (`board/duties/sync.py`).
+SYNC = "sync"
 
 
 class Opened(Frozen, frozen=True, kw_only=True, omit_defaults=False):
@@ -67,7 +71,8 @@ def opened_held(
     """`open_session` under the task's lock, which the restart holds already."""
     task = tasks.read(here.where.state, slug).task
     phase = here.phase(task)
-    queued.behind(here, task)
+    if why != SYNC:
+        queued.behind(here, task)
     running = already(here, task, phase, replacing, now)
     return running or launched(here, task, phase, why, now)
 

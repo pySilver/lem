@@ -30,6 +30,7 @@ type Why = Literal[
     "conflict",
     "refused",
     "queue",
+    "sync",
     "night",
     "owner",
     "stopped",
