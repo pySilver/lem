@@ -1,8 +1,10 @@
 # A feature in parts
 
 Read when a stage names this file: an ask that says "as a feature" or "in parts", an ask `part of
-NAME: ...`, a task whose record names `part_of` (`lem task show SLUG`), the wake `lem: NAME sync`,
-and the landing of a feature or of a part. No other task reads it.
+NAME: ...`, a task that `lem task show SLUG` gives `parts` or `part_of` (its `session.md` has the
+line `feature:`), the wake `lem: NAME sync`, and the landing of a feature or of a part. No other
+task reads it. A feature carries no key of its own: `parts` is the tasks its `after` names whose
+`part_of` names it.
 
 A feature is one task, NAME, whose work goes in parts. Its branch is `feature/NAME`, cut from the
 project's base. Each part is an ordinary task whose base is `feature/NAME`: its own checks, its own
@@ -21,9 +23,8 @@ of `Size: small`.
 ## The ask
 
 `/lem new as a feature: <ask>`, or an ask that says "in parts". "Open the task" of `stages/new.md`
-as for any ask, with the whole line as he typed it as `--ask`, so that every session of NAME reads
-his words. A ticket goes with the feature, never with a part: `lem task open` refuses `--ticket`
-with `--part-of`. The feature takes the standard track with an interview, from a ticket too: the
+as for any ask. A ticket goes with the feature, never with a part: `lem task open` refuses
+`--ticket` with `--part-of`. The feature takes the standard track with an interview, from a ticket too: the
 read of step 8 of "The request" with `--track full --then interview --wait interview`, then
 `stages/interview.md`, with the steps below in their places.
 
@@ -96,9 +97,8 @@ the line of an origin that did not answer: say it.
 2. For each slug in `starts`, `open-task-session`: `lem session open PART --why new`. The other
    parts wait for the part before them, and the board's server opens each at its turn.
 3. The tick ("The ticks").
-4. Say in one line the parts, which start now and which wait. Then write `handoff.md`, with the
-   line that NAME is a feature whose end reads this file, and close this session as step 7 of "The
-   request" says: `lem session close NAME --why handoff --when-unselected` with
+4. Say in one line the parts, which start now and which wait. Then write `handoff.md`, and close
+   this session as step 7 of "The request" says: `lem session close NAME --why handoff --when-unselected` with
    `run-in-background`.
 
 ## A part's session
@@ -162,13 +162,12 @@ handoff --when-unselected` with `run-in-background`. NAME stays `queued`.
 
 ## The end
 
-When the last part ended, the board's server gives NAME its turn, `lem: NAME queue`. Run `lem task
-may-start NAME`, then `lem task move NAME building --line "the end of the feature"`. Never run `lem
-task read` for it: a read with no `--after` empties the list of parts that the landing reads.
-Behind a dropped part, `may-start` refuses, and NAME waits for his word as step 7 of "The request"
-says; his "start NAME now" (`stages/start.md`, "`/lem build`") moves NAME to `building` and keeps
-the list. Then you are the lead of the end, as step 4 of `stages/start.md` says for a session whose
-phase is the build: its span, then `brief.md`.
+When the last part ended, the board's server gives NAME its turn, `lem: NAME queue`, and its
+session takes it as any queued task whose lead comes next: step 8 of "The request", the standard
+track from a complete request, and you are the lead of the end. A read keeps the parts in NAME's
+`after`, where its landing finds them, and lifts the queue only once each part landed or was
+answered. Behind a dropped part NAME waits for his word, as step 7 of "The request" says; his
+"start NAME now" (`stages/start.md`, "`/lem build`") keeps the parts too.
 
 - The plan's criteria are his approval, with the headings and the numbers it has. Under a part's
   criterion goes the test line of that part's plan, which `feature/NAME` holds.

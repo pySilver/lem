@@ -18,8 +18,8 @@ change: the items filed, the cheap defects fixed on the way, and the others seen
 and a review's cheap ones that nobody fixed. Its criterion is `criteria.md` in the task directory, which
 the steps read in the place of a plan; a step's word "the plan" means that file for it.
 
-A part of a feature (`part_of` in `lem task show SLUG`) and a feature (a task that a part names in
-its `part_of`, in `lem task list`) land with what `stages/feature.md` adds: read it then.
+A part of a feature and a feature (`part_of` or `parts` in `lem task show SLUG`) land with what
+`stages/feature.md` adds: read it then.
 
 Take the task where it stands: `lem land next SLUG` names the step that is due. For a `ready` task
 that is step 1; for a task in `landing`, the step a cut-off left due (below); for an `open` one,
