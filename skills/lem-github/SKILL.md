@@ -173,6 +173,20 @@ lem issue answer SLUG
 3. The issue stays open: tell the owner the line `say` gives. Whether an answer closes it is his
    call.
 
+## tick
+
+For a feature in parts only, after its split, after each of its parts lands, and after its own
+"land". A part has no issue of its own; the feature's issue holds the plan of its parts.
+
+```bash
+lem issue tick NAME
+```
+
+1. One comment of Lem's own, from the records: a line with a box for each part of NAME, set for
+   each part that landed, and the last line `lem: NAME parts`.
+2. With no such comment on the issue, it posts one; with one, it edits that comment only when its
+   text differs. It writes no step down, so a tick run again sets nothing twice.
+
 `gh` is signed in as a person, so GitHub shows that person as the author of the comment, the
 assignment and the close. The comment's last line is what says that Lem wrote it.
 

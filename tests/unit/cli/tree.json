@@ -3273,6 +3273,23 @@
               "count": "1"
             }
           ]
+        },
+        "tick": {
+          "options": {
+            "--help": {
+              "aliases": [
+                "-h"
+              ],
+              "value": false,
+              "required": false
+            }
+          },
+          "positionals": [
+            {
+              "name": "slug",
+              "count": "1"
+            }
+          ]
         }
       },
       "subcommand_required": true

@@ -22,6 +22,7 @@ from lem.model.task import part_carry, parts, queue, split_records
 from lem.records.criterion import Criterion, CriterionTest
 from lem.records.record import Record
 from lem.records.task import Shape
+from lem.records.tickets import Ticket
 from lem.store import tasks, workspace
 from unit.task.spaces import made, read
 from unit.task.spaces import workspace as space
@@ -379,6 +380,20 @@ def test_a_split_queues_the_feature_after_its_parts_on_its_own_branch(
     assert origin.endswith(f"refs/heads/{BRANCH}")
     tree = where.lem / "worktrees" / FEATURE
     assert run_git(tree, "rev-parse", "--abbrev-ref", "HEAD") == BRANCH
+
+
+def test_only_the_feature_holds_its_ticket_after_the_split(tmp_path: Path) -> None:
+    where, path = feature(tmp_path)
+    ticket = Ticket(tracker="github", id="#42", repo="acme/shop")
+    tasks.update(
+        where.state,
+        FEATURE,
+        lambda found: replace(found, task=replace(found.task, ticket=ticket)),
+        read(where, FEATURE).revision,
+    )
+    split.split(where.checkout, FEATURE, path)
+    assert read(where, FEATURE).task.ticket == ticket
+    assert [read(where, slug).task.ticket for slug in SLUGS] == [None, None, None]
 
 
 def test_a_split_run_twice_makes_each_part_once(tmp_path: Path) -> None:

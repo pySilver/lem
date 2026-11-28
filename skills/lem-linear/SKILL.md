@@ -163,6 +163,28 @@ not wanted, while the task has a finding for them; so an answer has its own comm
 2. No status change, as for a drop. Tell the owner which status the ticket has now: whether an
    answer closes the ticket is his call, and he moves it.
 
+## tick
+
+For a feature in parts only: a task that a part names as its feature (`part_of` in
+`lem task show PART`). A part has no ticket; the feature's ticket holds the plan of its parts, in
+one comment of Lem's own. Run it after the split, after each part lands, and after the feature's
+own "land".
+
+1. The comment's text comes from the records, never from the ticket. One line for each part:
+   first the tasks of the feature's `after` (`lem task show NAME`) whose `part_of` is NAME, in
+   that order, then any other task whose `part_of` is NAME (`lem task list --ended`). A part that
+   landed is `- [x] PART: WHAT IT DOES`, and every other part is `- [ ] PART: WHAT IT DOES`, with
+   ` (dropped)` or ` (answered)` at its end when it ended so. What it does is the first line of
+   the part's ask. Then an empty line, and the last line `lem: NAME parts`.
+2. Read the ticket's comments. With no comment whose last line is `lem: NAME parts`, post the
+   text as a comment. With one, edit the first such comment to the text, and only when its text
+   differs; when it is the same, write nothing.
+3. Write no step down. The same records give the same text, so a tick run again sets no box
+   twice, and a box that a stop lost comes back at the next tick.
+
+`lem issue tick NAME` does the same for an issue of GitHub, and its text is the one to match.
+Whether Linear draws the boxes of a comment is not yet read from the real server.
+
 The connection is a person's, so Linear shows that person as the author of the comment and of
 the status changes. The comment's last line is what says that Lem wrote it; never leave it out.
 

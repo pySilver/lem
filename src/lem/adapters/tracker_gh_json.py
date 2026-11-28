@@ -41,6 +41,7 @@ class GhIssue(msgspec.Struct, frozen=True, rename="camel"):
 class GhComment(msgspec.Struct, frozen=True):
     """A comment as GitHub's REST list of an issue's comments gives it."""
 
+    id: int | None = None
     body: str | None = None
     user: GhLogin | None = None
     created_at: str | None = None
@@ -65,6 +66,7 @@ def issue_of(found: GhIssue) -> Issue:
 def comment_of(found: GhComment) -> Comment:
     """One comment as the tracker gives it."""
     return Comment(
+        id=found.id,
         author=found.user.login if found.user else None,
         at=found.created_at,
         text=found.body or "",
