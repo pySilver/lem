@@ -6,6 +6,7 @@ first, since only the owner's word gets past it.
 from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
+from lem.model.task import feature_parts
 
 if TYPE_CHECKING:
     from lem.records.record import Record
@@ -23,9 +24,15 @@ def word(slug: str) -> str:
 
 def waited(task: Task, every: tuple[Record, ...]) -> Waits:
     """Each task `task` waits for that has not landed nor been answered, with its status, in
-    the order of `Task.after`; `no task` for a name no record has."""
+    the order of `Task.after`; `no task` for a name no record has. A task that went on in
+    another task of `after` is not waited for: the one it went on in is."""
     statuses = {record.task.slug: record.task.status for record in every}
-    found = {after: statuses.get(after, "no task") for after in task.after}
+    gone = feature_parts.went_on(task, (record.task for record in every))
+    found = {
+        after: statuses.get(after, "no task")
+        for after in task.after
+        if after not in gone
+    }
     return tuple(pair for pair in found.items() if pair[1] not in STARTED)
 
 

@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 from lem.model.owner import answers, turns
 from lem.model.owner.looks import Row
-from lem.model.task import breaker_question
+from lem.model.task import breaker_question, feature_parts
 from lem.records.holds import Blocked, BreakerHold, OwnerHold
 
 if TYPE_CHECKING:
@@ -77,10 +77,7 @@ def after_rows(look: Look, tasks: Mapping[str, Task]) -> tuple[Row, ...]:
     task = look.record.task
     if task.status != "queued":
         return ()
-    predecessors = map(tasks.get, dict.fromkeys(task.after))
-    dropped = tuple(
-        one for one in predecessors if one is not None and one.status == "dropped"
-    )
+    dropped = feature_parts.dropped_before(task, tasks)
     if not dropped:
         return ()
     key = f"after_dropped:{task.slug}"

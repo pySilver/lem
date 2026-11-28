@@ -19,7 +19,7 @@ from lem.app.tasks import carry, park, resume
 from lem.kernel import clock
 from lem.kernel.errors import Refusal
 from lem.model.landing import propose_criteria, propose_doubts
-from lem.model.task import resumes
+from lem.model.task import behind, feature_parts, resumes
 from lem.ports.faults import Unanswered
 from lem.records.approvals import Approval, PersonaRead
 from lem.records.criteria import Criteria
@@ -530,3 +530,42 @@ def test_a_resume_does_not_claim_an_existing_branch(
     assert new in refused.value.why
     assert not places.task_folder(where.state, f"{SLUG}-2").exists()
     assert run_git(where.checkout, "rev-parse", new) == unrelated
+
+
+def test_a_part_dropped_by_its_breaker_goes_on_and_its_feature_waits_for_the_new_part(
+    tmp_path: Path,
+) -> None:
+    repo = RealRepo.init(tmp_path / "repo", {"README.md": b"one\n"})
+    where = workspace(repo.checkout)
+    feature = "save-items"
+    repo.outside_commit(f"feature/{feature}", {"FEATURE.md": b"the feature\n"})
+    made(where, feature, status="queued", branch=f"feature/{feature}", after=(SLUG,))
+    dropped_with_breaker(where, part_of=feature)
+    before = behind.behind(read(where, feature).task, tasks.every(where.state))
+    assert before is not None
+    assert before.code == "after-dropped"
+    back = resume.resumed(where.checkout, SLUG)
+    waiting = read(where, feature).task
+    assert waiting.after == (SLUG, back.task)
+    assert read(where, back.task).task.part_of == feature
+    every = tasks.every(where.state)
+    after = behind.behind(waiting, every)
+    assert after is not None
+    assert after.code == "queued"
+    assert behind.waited(waiting, every) == ((back.task, "building"),)
+    by_slug = {one.task.slug: one.task for one in every}
+    assert feature_parts.dropped_before(waiting, by_slug) == ()
+
+
+def test_a_task_queued_after_a_dropped_task_still_waits_for_his_word_after_its_resume() -> (
+    None
+):
+    queued = record("notes", after=(SLUG,)).task
+    old = record(SLUG, status="dropped").task
+    new = record(f"{SLUG}-2", status="building", resumed_from=SLUG).task
+    every = (record(SLUG, status="dropped"), record(new.slug, status="building"))
+    assert feature_parts.went_on(queued, (old, new)) == frozenset()
+    found = behind.behind(queued, every)
+    assert found is not None
+    assert found.code == "after-dropped"
+    assert feature_parts.dropped_before(queued, {SLUG: old, new.slug: new}) == (old,)

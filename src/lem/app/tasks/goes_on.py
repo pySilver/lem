@@ -4,12 +4,13 @@
 A task dropped with a breaker that waits goes on from its handoff, its records and its branch,
 held by that breaker, on the release the dropped one began on. A task the release stop dropped
 goes on as a new request on this release, from the notes it left and its branch, and takes its
-shape anew. The dropped task stays dropped.
+shape anew. The dropped task stays dropped. A part of a feature that goes on joins the
+feature first (`feature.rejoined`), so the feature waits for the new task in its place.
 """
 
 from typing import TYPE_CHECKING
 
-from lem.app.tasks import carry, carry_activity, ports, resume_claim, worktree
+from lem.app.tasks import carry, carry_activity, feature, ports, resume_claim, worktree
 from lem.app.tasks.park import Resumed
 from lem.kernel import clock, release
 from lem.kernel.errors import Refusal
@@ -76,6 +77,7 @@ def as_breaker(
     taken, new = gathered(where, record)
     task = resumes.breaker_task(record.task, new, breaker.id, clock.now())
     start = old_branch(where, record)
+    feature.rejoined(where, task)
     made = resume_claim.opened(where, carried_record(record, task), start, kind)
     placed(where, made, taken, breaker.document)
     try:
@@ -104,6 +106,7 @@ def as_request(
     taken, new = gathered(where, record)
     start = old_branch(where, record)
     task = resumes.request_task(record.task, new, start, clock.now())
+    feature.rejoined(where, task)
     made = resume_claim.opened(
         where, Record(release=release.running(), task=task), start, kind
     )
