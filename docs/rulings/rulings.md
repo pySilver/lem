@@ -174,6 +174,10 @@ day he ruled it, or the days of the rulings a bullet joins. What a test or one p
   calls the owner only when the fix needs a criterion to change or a breaker applies. A task whose
   checks ran on the current base merges first. The board server records how many approved tasks wait
   at each merge. (2026-11-25)
+- **A larger feature is a branch of its own, kept in sync with the base, and each step of it lands
+  there by its own pull request and ticks its box in the plan on the issue or the ticket.** No
+  feature flags and no other machinery: one pull request takes the branch to the base at the end, so
+  that "throw away whole thing easily if we decide we don't like it" holds. (2026-11-25)
 
 ## A task's session, and whether he is there
 
