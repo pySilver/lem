@@ -9,12 +9,12 @@ import msgspec
 
 from lem.app.asking import ends, saved
 from lem.board.acts.asker import Asker
-from lem.board.ask import live_card, verify
+from lem.board.ask import live_card, session_page, verify
 from lem.kernel.errors import Refusal
 from lem.records.questions import Answer, Question
 
 if TYPE_CHECKING:
-    from lem.app.asking.shape import Posted
+    from lem.app.asking.shape import Card, Posted
 
 
 class AtCard(msgspec.Struct, frozen=True, kw_only=True):
@@ -25,6 +25,7 @@ class AtCard(msgspec.Struct, frozen=True, kw_only=True):
     shown: Question
     who: Asker
     environ: Mapping[str, str]
+    home: Path
 
 
 def accepted(at: AtCard, posted: Posted) -> tuple[HTTPStatus, str]:
@@ -42,11 +43,12 @@ def accepted(at: AtCard, posted: Posted) -> tuple[HTTPStatus, str]:
     except Refusal as error:
         return HTTPStatus.UNPROCESSABLE_ENTITY, f"{error.why} {error.fix}"
     live_card.check(at.folder, card, at.environ)
-    return commit(at, checked)
+    return commit(at, card, checked)
 
 
-def commit(at: AtCard, posted: Posted) -> tuple[HTTPStatus, str]:
-    """Keep the answer in the task record and give the board its outcome."""
+def commit(at: AtCard, card: Card, posted: Posted) -> tuple[HTTPStatus, str]:
+    """Keep the answer in the task record, close the card's page in its session when this
+    answer is the first one, and give the board its outcome."""
     proposed = Answer(
         option="answered",
         label=verify.label_of(posted),
@@ -64,6 +66,7 @@ def commit(at: AtCard, posted: Posted) -> tuple[HTTPStatus, str]:
     won, kept = ends.finish(at.folder, at.shown, proposed, wire)
     if not won:
         return taken(kept)
+    session_page.close(at.home, card.session, at.page, at.environ)
     return (
         HTTPStatus.OK,
         "The owner’s answer is on record. The task’s session will read it.",

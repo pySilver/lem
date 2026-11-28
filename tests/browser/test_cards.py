@@ -274,8 +274,66 @@ def test_an_answer_on_one_board_replaces_the_open_card_on_the_other(
     counts(here, before)
     seed(cards, "a-wait-after-the-answer", "A new interview", waits=True)
     counts(here, before + 1)
+    expect(here.locator("#card-step")).to_contain_text(taken)
+    expect(here.locator("#card-step iframe")).to_have_count(0)
+
+
+def test_the_board_that_took_the_answer_closes_the_card(
+    cards: Board, window: OpenWindow
+) -> None:
+    show_rounding(cards)
+    here = opened_card(cards, window, phone=False)
+    card = here.locator("#card-step iframe").content_frame
+    card.locator(".hd-q.cur .hd-opt").filter(has_text="Only the total").locator(
+        ".hd-label"
+    ).click()
+    card.locator(".hd-q.cur textarea").fill("For the export")
+    send = card.locator(".hd-foot button.primary")
+    send.click()
+    expect(card.locator(".hd-review.cur")).to_be_visible()
+    send.click()
     expect(card.locator(".hd-done")).to_contain_text(SUCCESS)
-    expect(here.locator("#card-step")).not_to_contain_text(taken)
+    assert answer(cards, CARD).source == "board"
+    expect(here.locator("#card-step iframe")).to_have_count(0, timeout=STREAM_WAIT)
+
+
+def test_the_line_after_an_answer_has_a_background_of_its_own(
+    cards: Board, window: OpenWindow
+) -> None:
+    page_id, _, _ = template(cards, "tune")
+    page = window(DESKTOP, phone=False).pages[0]
+    open_card(page, cards, page_id)
+    page.locator(".hd-label").filter(has_text="Soft").click()
+    page.locator(".hd-foot button.primary").click()
+    done = page.locator(".hd-done")
+    expect(done).to_contain_text(SUCCESS)
+    drawn = done.evaluate("line => getComputedStyle(line).backgroundColor")
+    assert drawn not in {"rgba(0, 0, 0, 0)", "transparent"}, drawn
+
+
+# The line's background, painted on a canvas of one pixel: its red, green, blue and alpha.
+PAINTED = """line => {
+  const pixel = document.createElement('canvas').getContext('2d')
+  pixel.fillStyle = getComputedStyle(line).backgroundColor
+  pixel.fillRect(0, 0, 1, 1)
+  return Array.from(pixel.getImageData(0, 0, 1, 1).data)
+}"""
+
+
+@pytest.mark.parametrize("dark", (False, True), ids=("light", "dark"))
+def test_the_line_after_an_answer_takes_the_page_s_ground_in_light_and_dark(
+    cards: Board, window: OpenWindow, *, dark: bool
+) -> None:
+    page_id, _, _ = template(cards, "tune")
+    page = window(DESKTOP, phone=False, dark=dark).pages[0]
+    open_card(page, cards, page_id)
+    page.locator(".hd-label").filter(has_text="Soft").click()
+    page.locator(".hd-foot button.primary").click()
+    done = page.locator(".hd-done")
+    expect(done).to_contain_text(SUCCESS)
+    red, green, blue, alpha = done.evaluate(PAINTED)
+    assert alpha > 200, alpha
+    assert (red + green + blue < 3 * 128) is dark, (red, green, blue)
 
 
 def test_tune_records_the_slider_value_and_the_preset_it_started_from(

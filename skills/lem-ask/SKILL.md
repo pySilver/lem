@@ -323,7 +323,7 @@ The default wait is 570 s so it fits one Bash call. The outcome `pending` gives 
 run `lem ask wait PAGEID` to resume the wait. A command with `--no-wait` gives the
 outcome `open` and its page id immediately. To wait in the background, set the Bash tool's
 `run_in_background: true` and give the command `--timeout 86400`. The 570 s limit is for
-foreground calls. The overlay remains open after the wait ends.
+foreground calls. The overlay remains open after the wait ends, until an answer or a close.
 
 Run `lem ask close PAGEID` to close one question this session shows. Run `lem ask close` to
 close the current question. The result is `closed` or `gone`. If an answer already counted,
@@ -343,7 +343,9 @@ A card ends once. The overlay wait and the board both read the first end on the 
 
 - `result.from` is `session` for the overlay or `board` for the board.
 - A board answer also gives `via` (`local` or `door`), `device` (`phone` or `computer`), and
-  a `said` line. The overlay waiter closes its page when it reads the board's answer.
+  a `said` line. When the board's answer is the first end, the board server closes the card's
+  page in the session at once, also with no wait (after `--no-wait`, or after a wait that
+  returned `pending`). A wait that still runs reads the same answer.
 - If the owner answers on the board after a wait returns `pending`, `lem ask wait PAGEID` reads
   the answer from the task record. A later answer or close leaves the first result in place.
 

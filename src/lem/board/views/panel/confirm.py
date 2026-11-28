@@ -33,11 +33,10 @@ def not_now(
     said: str,
     *,
     card: str = "confirm",
-    keep: str | None = None,
 ) -> NotNow:
     """A step with nothing to do now: what it says, and the way back to the task."""
     link = back(world, slug, "Back to the task")
-    return NotNow(id=card, said=said, back=link, keep=keep)
+    return NotNow(id=card, said=said, back=link)
 
 
 def act_href(world: World, slug: str, act: str) -> str:

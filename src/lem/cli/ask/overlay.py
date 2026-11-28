@@ -3,8 +3,8 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from lem.app.asking import keys, overlay_read
-from lem.cli.ask import overlay_tree, temp_pages
+from lem.app.asking import keys, overlay_read, overlay_tree, page_close
+from lem.cli.ask import temp_pages
 from lem.ports.faults import Unanswered
 
 if TYPE_CHECKING:
@@ -64,18 +64,16 @@ class Overlay:
 
     def close(self, page: str) -> bool:
         """Close this session's overlay while it still has this question."""
-        if not self.shown(page):
-            return False
-        told = overlay_read.reply(self.environ, "close", TARGET, self.session)
-        if not told.ok or told.error:
-            raise Unanswered(
-                "agtermctl", told.error or "the question page did not close"
-            )
-        return True
+        return page_close.close(self.environ, self.session, page, shows=ours)
 
     def outcome(self, page: str) -> overlay_read.PageOutcome:
         """Read what the owner did in the overlay."""
         return overlay_read.outcome(self.environ, page)
+
+
+def ours(overlays: tuple[overlay_tree.Overlay, ...], page: str) -> bool:
+    """The session shows this page, and its file is one lem ask wrote."""
+    return temp_pages.ours(overlays, page) is not None
 
 
 def flags(display: Display) -> tuple[str, ...]:

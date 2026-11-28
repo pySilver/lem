@@ -6,6 +6,7 @@ from base64 import b64encode
 from concurrent.futures import ThreadPoolExecutor
 from hashlib import sha256
 from pathlib import Path
+from subprocess import CompletedProcess
 from threading import Barrier
 from typing import TYPE_CHECKING
 
@@ -13,30 +14,30 @@ import pytest
 
 from fakes import records
 from lem.adapters import agterm_ctl
-from lem.app.asking import ends, form, keys, saved
+from lem.app.asking import ends, form, keys, page_close, saved
 from lem.app.asking.scripts import hashed
 from lem.app.owner import cards
 from lem.app.sessions import acts, log
 from lem.cli import lazy
-from lem.cli.ask import waiting
+from lem.cli.ask import card_wait, waiting
 from lem.kernel import paths
 from lem.kernel.errors import Refusal
 from lem.model.owner import held
 from lem.model.owner.looks import Look, Session
+from lem.records.questions import Answer
 from lem.store import tasks
 from unit.ask.conftest import PAGE, SESSION, SLUG
 
 if TYPE_CHECKING:
-    from subprocess import CompletedProcess
-
     from lem.cli.ask.context import Context
-    from lem.records.questions import Answer, Question
+    from lem.records.questions import Question
     from unit.ask.conftest import Agterm
     from unit.board.service.given import Board
 
 ROUTE = f"/studio/shop/tasks/{SLUG}/cards/{PAGE}"
 ORIGIN = {"Origin": "http://127.0.0.1:4999", "Sec-Fetch-Site": "same-origin"}
 REAL_CTL = agterm_ctl.ctl
+CLOSE = ("session", "overlay", "close", "--target", SESSION, "--json")
 
 
 def show(terminal: Agterm, capsys: pytest.CaptureFixture[str]) -> dict:
@@ -298,8 +299,10 @@ def test_board_answer_is_the_waiters_result_and_the_only_end(
     assert "Write a dash" in second.json()["said"]
     assert [call for call in terminal.calls[before_post:] if call[0] != "tree"] == [
         ("session", "overlay", "result", "--page", PAGE, "--json"),
+        CLOSE,
     ]
-    assert terminal.shown is not None
+    assert terminal.shown is None
+    before_wait = len(terminal.calls)
     assert lazy.main(["ask", "wait", PAGE, "--no-status"]) == 0
     picked = json.loads(capsys.readouterr().out)["result"]
     assert picked["outcome"] == "answered"
@@ -310,7 +313,7 @@ def test_board_answer_is_the_waiters_result_and_the_only_end(
     )
     assert picked["answers"]["answer"]["labels"] == ["Write a dash"]
     assert picked["answers"]["answer"]["text"] == "For the export"
-    assert terminal.shown is None
+    assert CLOSE not in terminal.calls[before_wait:]
     record = tasks.read(board.state, SLUG)
     assert [row.act for row in record.journal if hasattr(row, "act")] == [
         "card.asked",
@@ -346,7 +349,7 @@ def test_wait_keeps_the_board_pick_and_names_a_later_overlay_pick(
         digest = client.head(ROUTE).headers["etag"].strip('"')
         response = client.post(ROUTE + "/answer", json=posted(digest), headers=ORIGIN)
     assert response.status_code == 200
-    assert terminal.shown is not None
+    assert terminal.shown is None
     terminal.outcome = "submitted"
     terminal.payload = json.dumps(
         {
@@ -565,3 +568,150 @@ def test_a_page_id_is_never_a_path(board: Board) -> None:
         keys.copies(folder, "../another-card")
     with board.main() as client:
         assert client.get(ROUTE + "-missing/").status_code == 404
+
+
+@pytest.mark.parametrize("no_wait", [False, True])
+def test_a_board_answer_closes_the_page_when_no_wait_runs(
+    board: Board,
+    terminal: Agterm,
+    capsys: pytest.CaptureFixture[str],
+    *,
+    no_wait: bool,
+) -> None:
+    words = ["--no-wait"] if no_wait else ["--timeout", "0"]
+    assert lazy.main(["ask", "q", "Approve the criteria?", "Yes", "No", *words]) == 0
+    asked = json.loads(capsys.readouterr().out)["result"]
+    assert asked["outcome"] == ("open" if no_wait else "pending")
+    assert terminal.shown is not None
+    with board.main() as client:
+        digest = client.head(ROUTE).headers["etag"].strip('"')
+        got = client.post(ROUTE + "/answer", json=posted(digest), headers=ORIGIN)
+    assert got.status_code == 200
+    assert terminal.shown is None
+    assert terminal.calls.count(CLOSE) == 1
+    assert tasks.read(board.state, SLUG).task.questions[0].answer is not None
+
+
+def test_the_board_closes_the_page_by_its_id_wherever_its_file_is(
+    board: Board, terminal: Agterm, capsys: pytest.CaptureFixture[str]
+) -> None:
+    show(terminal, capsys)
+    terminal.shown = "/the/servers/own/tmp/lem-ask/page.html"
+    with board.main() as client:
+        digest = client.head(ROUTE).headers["etag"].strip('"')
+        got = client.post(ROUTE + "/answer", json=posted(digest), headers=ORIGIN)
+    assert got.status_code == 200
+    assert terminal.shown is None
+
+
+def test_the_board_leaves_another_page_of_the_session_open(
+    board: Board,
+    terminal: Agterm,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    show(terminal, capsys)
+
+    def another_page(env: dict, *words: str, **flags: object) -> CompletedProcess[str]:
+        told = terminal.ctl(env, *words, **flags)
+        if words[0] != "tree":
+            return told
+        return CompletedProcess(words, 0, told.stdout.replace(f'"{PAGE}"', '"P2"'), "")
+
+    monkeypatch.setattr(agterm_ctl, "ctl", another_page)
+    with board.main() as client:
+        digest = client.head(ROUTE).headers["etag"].strip('"')
+        got = client.post(ROUTE + "/answer", json=posted(digest), headers=ORIGIN)
+    assert got.status_code == 200
+    assert terminal.shown is not None
+    assert CLOSE not in terminal.calls
+
+
+def test_a_failed_close_keeps_the_answer_and_logs_the_page_and_the_reason(
+    board: Board,
+    terminal: Agterm,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    show(terminal, capsys)
+
+    def refuses_close(env: dict, *words: str, **flags: object) -> CompletedProcess[str]:
+        if words[:3] == CLOSE[:3]:
+            return terminal.reply(words, error="the overlay is busy")
+        return terminal.ctl(env, *words, **flags)
+
+    monkeypatch.setattr(agterm_ctl, "ctl", refuses_close)
+    with board.main() as client:
+        digest = client.head(ROUTE).headers["etag"].strip('"')
+        got = client.post(ROUTE + "/answer", json=posted(digest), headers=ORIGIN)
+    assert got.status_code == 200
+    assert got.json()["said"].startswith("The owner’s answer is on record.")
+    assert tasks.read(board.state, SLUG).task.questions[0].answer is not None
+    logged = (board.home / "lem.log").read_text(encoding="utf-8")
+    assert f"the page {PAGE} did not close in session {SESSION}" in logged
+    assert "the overlay is busy" in logged
+    assert terminal.shown is not None
+
+
+def test_a_losing_board_answer_closes_nothing(
+    board: Board,
+    terminal: Agterm,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    show(terminal, capsys)
+    with board.main() as client:
+        digest = client.head(ROUTE).headers["etag"].strip('"')
+    closes: list[str] = []
+    monkeypatch.setattr(
+        page_close, "close", lambda *args, **_flags: closes.append(args[2])
+    )
+    first = Answer(
+        at=records.MOMENT, option="dismissed", label="dismissed", source="session"
+    )
+    finish = ends.finish
+
+    def session_first(
+        folder: Path, asked: Question, proposed: Answer, payload: ends.Payload
+    ) -> tuple[bool, Answer]:
+        finish(folder, asked, first, {"status": "dismissed"})
+        return finish(folder, asked, proposed, payload)
+
+    monkeypatch.setattr(ends, "finish", session_first)
+    with board.main() as client:
+        got = client.post(ROUTE + "/answer", json=posted(digest), headers=ORIGIN)
+    assert got.status_code == 409
+    assert closes == []
+
+
+@pytest.mark.parametrize("later", ["dismissed", "submitted"])
+def test_a_close_after_the_board_answer_is_no_later_act_of_the_owner(
+    board: Board,
+    terminal: Agterm,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    later: str,
+) -> None:
+    show(terminal, capsys)
+    with board.main() as client:
+        digest = client.head(ROUTE).headers["etag"].strip('"')
+        got = client.post(ROUTE + "/answer", json=posted(digest), headers=ORIGIN)
+    assert got.status_code == 200
+    # The poll read the record before the board's answer reached it, and agterm after.
+    monkeypatch.setattr(card_wait, "recorded", lambda *_args: None)
+    terminal.outcome = later
+    terminal.payload = json.dumps(
+        {
+            "status": "answered",
+            "answers": {"answer": {"selected": ["o1"], "labels": ["Keep"]}},
+        }
+    )
+    assert lazy.main(["ask", "wait", PAGE, "--no-status"]) == 0
+    picked = json.loads(capsys.readouterr().out)["result"]
+    assert picked["from"] == "board"
+    assert picked["answers"]["answer"]["labels"] == ["Write a dash"]
+    assert "Write a dash was recorded on the board" in picked["said"]
+    if later == "dismissed":
+        assert "later act" not in picked["said"]
+    else:
+        assert "The later act in the session was Keep." in picked["said"]
