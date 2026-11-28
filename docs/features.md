@@ -50,7 +50,8 @@ own criteria for your yes.
 After the last part ends, the session of the feature starts its end:
 
 1. A builder writes the tests of the criteria of the whole feature.
-2. The review reads the commits that no review of a part read, and each careful part.
+2. The review reads the commits that no review of a part read, and each
+   [careful](flow.md#careful) part. A careful part can affect what must never go wrong.
 3. Lem opens the pull request of the feature into the base.
 4. You approve it. The merge agent never merges a feature.
 
@@ -66,7 +67,8 @@ request stays open. Lem never deletes the branch. The answer gives the command f
 git push origin --delete feature/<name>
 ```
 
-After the end, type `/lem new revert <name>`. A task reverts the one commit of the feature.
+After the end, ask for a revert in plain words, for example `/lem new revert <name>`. A task
+reverts the one commit of the feature.
 
 ## A feature from a ticket
 
@@ -79,6 +81,6 @@ records each time. Whether Linear draws the boxes is untested.
 - A workflow with `on: pull_request: branches: [main]` does not run on the pull request of a part.
   Add `'feature/**'` to its branches for your CI on the parts. The checks of Lem run on each part.
 - When the head branch of a merged pull request goes, GitHub moves each open pull request into it
-  onto the base. Thus Lem refuses the merge of a feature while a pull request goes into its branch.
+  onto the base. So Lem refuses the merge of a feature while a pull request goes into its branch.
 - GitHub closes the open pull requests of a branch that you delete. Whether this closes a pull
   request of a part into `feature/<name>` is untested.

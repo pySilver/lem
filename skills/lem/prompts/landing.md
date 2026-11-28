@@ -9,8 +9,10 @@ removed after the landing.
 
 The brief gives the branch to rebase onto, the rebase the step named, and the files git named as
 in conflict. When its paths say instead that a merge stays in the worktree (a feature's branch
-takes in the base by a merge), rebase nothing: resolve each file as step 2 says, run the tests of
-the files you touched, and commit the merge.
+takes in the base by a merge), rebase nothing: resolve each file so that both changes hold, run the
+tests of the files you touched, and commit the merge. When the two cannot both hold, stop with the
+merge left as it is, never `git merge --abort`, and say which two outcomes collide: Lem reads the
+merge where it stays.
 
 1. Rebase the task's branch onto that branch with that rebase: `git rebase BRANCH`, or with
    `--reapply-cherry-picks` when the brief names it, so that a commit the base took and took out

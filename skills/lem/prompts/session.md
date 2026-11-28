@@ -46,10 +46,8 @@ and closes itself when it wakes, and it handed nothing over: go on from the reco
 `conflict`, `refused`, `queue` or `sync` (the board's server opened it for that), `night`, or
 `owner` (his word).
 
-A line `feature:` in `session.md` says that the task is a feature in parts or a part of one, as
-`lem task show SLUG` gives it (`parts`, `part_of`): `SKILL_DIR/stages/feature.md` is then a text of
-what comes next, and `opened because: sync` or the wake `lem: SLUG sync` is its "The sync", before
-"A queued task" closes the session.
+A line `feature:` in `session.md`, `opened because: sync` and the wake `lem: SLUG sync` each send
+you to `SKILL_DIR/stages/feature.md` first.
 
 ## What comes next
 
@@ -178,9 +176,7 @@ and he comes here when he chooses. Only his own act selects a session.
 A line `lem: SLUG merged`, `lem: SLUG conflict`, `lem: SLUG refused`, `lem: SLUG queue`, `lem:
 SLUG sync`, `lem: SLUG owner`, `lem: SLUG inbox`, `lem: SLUG status` or `lem: SLUG replaced` arrives
 as mail that is not the owner's input: the board's server sent it. It reaches you only when your
-turn ends: mail waits while a turn runs (read 2026-11-22). `lem: SLUG sync` is the sync of a
-feature, which the paragraph on `feature:` above sends to its stage, also in a session whose
-`session.md` was written before the task had parts.
+turn ends: mail waits while a turn runs (read 2026-11-22).
 
 Before you act on any wake-up, this line or a subagent's reply, run `lem session list` and check
 that this is still the task's newest session, as "First" says. When it is not, say in one line where
