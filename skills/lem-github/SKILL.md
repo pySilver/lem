@@ -186,6 +186,9 @@ lem issue tick NAME
    each part that landed, and the last line `lem: NAME parts`.
 2. With no such comment on the issue, it posts one; with one, it edits that comment only when its
    text differs. It writes no step down, so a tick run again sets nothing twice.
+3. An edit replaces what was there, a change a person made by hand too, and `say` tells the owner
+   that the comment was written again from the records. A hand edit that removed the last line
+   leaves no comment to find, so the next tick posts a second one.
 
 `gh` is signed in as a person, so GitHub shows that person as the author of the comment, the
 assignment and the close. The comment's last line is what says that Lem wrote it.

@@ -178,7 +178,10 @@ own "land".
    the part's ask. Then an empty line, and the last line `lem: NAME parts`.
 2. Read the ticket's comments. With no comment whose last line is `lem: NAME parts`, post the
    text as a comment. With one, edit the first such comment to the text, and only when its text
-   differs; when it is the same, write nothing.
+   differs; when it is the same, write nothing. An edit replaces what was there, a change a
+   person made by hand too: tell the owner that the comment was written again from the records.
+   A hand edit that removed the last line leaves no comment to find, so the next tick posts a
+   second one.
 3. Write no step down. The same records give the same text, so a tick run again sets no box
    twice, and a box that a stop lost comes back at the next tick.
 

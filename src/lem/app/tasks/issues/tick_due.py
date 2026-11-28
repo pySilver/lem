@@ -1,6 +1,8 @@
 """What the comments of a feature's issue ask of a tick (`tick.py`): Lem's parts comment is the
 first comment whose last line is `lem: NAME parts`. With none, the tick posts it; with one whose
-text differs, it edits that comment; with one of the same text, it writes nothing.
+text differs, it edits that comment, and says that it replaced what was there, since a change
+made by hand is lost; with one of the same text, it writes nothing. A hand edit that removed the
+last line leaves no comment to find, and the next tick posts a second one.
 """
 
 from typing import TYPE_CHECKING, Literal
@@ -15,7 +17,7 @@ if TYPE_CHECKING:
 
 # What each write did, as `did` and the line for the owner say it.
 POSTED = "posted the parts comment"
-EDITED = "edited the parts comment"
+EDITED = "wrote the parts comment again from the records"
 
 
 class Due(Frozen, frozen=True, kw_only=True):

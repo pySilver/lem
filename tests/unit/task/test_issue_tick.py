@@ -207,7 +207,11 @@ def test_the_tick_posts_at_the_split_edits_after_a_land_and_writes_nothing_again
     )
     land(w, "save-endpoint")
     done, say = ticked(w)
-    assert done["did"] == ["edited the parts comment"]
+    assert done["did"] == [tick_due.EDITED]
+    assert say == (
+        "wrote the parts comment again from the records on issue #42 of acme/shop: 1 of 3 "
+        "parts landed. It replaced what was there, a change made by hand too"
+    )
     assert w.thread()[-1] == text_of("landed", "queued", "queued")
     assert len(w.thread()) == 2
     assert [call[0] for call in w.fake.writes()] == ["comment", "edit_comment"]

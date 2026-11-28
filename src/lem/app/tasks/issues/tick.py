@@ -30,6 +30,11 @@ STEP = "tick"
 def said(run: Run, parts: tuple[Task, ...]) -> str:
     """The line for the owner: what the step did, and how many parts landed."""
     count = f"{parts_comment.landed(parts)} of {len(parts)} parts landed"
+    if tick_due.EDITED in run.did:
+        return (
+            f"{tick_due.EDITED} on {run.named}: {count}. It replaced what was there, a "
+            "change made by hand too"
+        )
     if run.did:
         return f"{run.did[0]} on {run.named}: {count}"
     return f"the parts comment on {run.named} says it already: {count}"
