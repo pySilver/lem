@@ -20,6 +20,7 @@ from unit.board.views.afternoon import world
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from lem.board.inputs.task.steps import NotNow
     from lem.board.views.world import World
 
 GIFT = "gift-note-in-export"
@@ -53,6 +54,11 @@ def answering(afternoon: World, slug: str, source: str = "board") -> World:
     changed = msgspec.structs.replace(seen, record=record)
     tasks = tuple(changed if one is seen else one for one in afternoon.tasks)
     return dataclasses.replace(afternoon, tasks=tasks)
+
+
+def unsaid(step: NotNow) -> NotNow:
+    """STEP with no words: what it is beside what it says."""
+    return msgspec.structs.replace(step, said="")
 
 
 def test_a_park_takes_one_line_of_why_and_the_breakers_question(tmp_path: Path) -> None:
@@ -157,7 +163,8 @@ def test_a_card_of_the_tasks_session_opens_its_own_page_in_a_frame(
 
 
 def test_a_card_that_no_longer_waits_says_what_took_effect(tmp_path: Path) -> None:
-    afternoon = answering(world(tmp_path), ROUNDING)
+    before = world(tmp_path)
+    afternoon = answering(before, ROUNDING)
     found = panel(afternoon, ROUNDING, "card", opened=Opened(page=CARD))
     assert found.not_now is not None
     assert found.not_now.id == "card-step"
@@ -165,9 +172,20 @@ def test_a_card_that_no_longer_waits_says_what_took_effect(tmp_path: Path) -> No
         "B was taken on the board at 15:55, from the phone. This card no longer waits "
         "for you."
     )
+    # The board that took the answer gets no receipt: the step is the one a session's
+    # answer and a card that is gone give, but for its words.
+    session = panel(
+        answering(before, ROUNDING, source="session"),
+        ROUNDING,
+        "card",
+        opened=Opened(page=CARD),
+    )
+    assert session.not_now is not None
+    assert unsaid(found.not_now) == unsaid(session.not_now)
     gone = panel(afternoon, ROUNDING, "card", opened=Opened(page="no-such-card"))
     assert gone.not_now is not None
     assert gone.not_now.said.startswith("This card no longer waits for you:")
+    assert unsaid(gone.not_now) == unsaid(found.not_now)
 
 
 def test_nothing_to_merge_while_the_task_is_not_open(tmp_path: Path) -> None:
