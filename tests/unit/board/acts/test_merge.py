@@ -266,6 +266,12 @@ def test_where_the_history_keeps_commits_only_a_features_squash_gets_its_title(
     opened_pull(board)
     if feature:
         made(board, "a-part", part_of=SLUG, status="landed")
+        found = read(board)
+
+        def joined(record: Record) -> Record:
+            return replace(record, task=replace(record.task, after=("a-part",)))
+
+        tasks.update(board.state, SLUG, joined, found.revision)
     calls: list[Asked] = []
     monkeypatch.setattr(merging.merge, "run", accepting(calls))
     settled(board, token_of(board, {"tip": TIP, "confirm": "yes"}))

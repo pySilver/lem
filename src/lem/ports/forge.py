@@ -39,9 +39,11 @@ class ForgePulls(Protocol):
 
 
 class ForgeRefs(Protocol):
-    """The forge's branches: the delete of a task branch's copy, with a lease."""
+    """The forge's branches: the delete of a task branch's copy, with a lease, and every open
+    pull request whose base is a branch, each one or a fault, never a page of them."""
 
     def delete_ref(self, name: str, expect: Sha) -> bool: ...
+    def pulls_into(self, branch: str) -> tuple[Pull, ...]: ...
 
 
 class Forge(ForgePulls, ForgeRefs, Protocol):

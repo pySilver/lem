@@ -117,19 +117,32 @@ def test_the_merge_agents_merge_of_the_proposed_tip_is_the_servers(
 KEEP = '[branch]\nbase = "main"\nhistory = "keep"\n'
 
 
+def feature_of(here: Here, slug: str) -> None:
+    """The open task `slug` made a feature: a landed part names it, and its `after` names
+    the part, as `lem task open --part-of` leaves them."""
+    made(here, "a-part", part_of=slug, status="landed")
+    found = tasks.read(here.where.state, slug)
+
+    def joined(record: Record) -> Record:
+        return replace(record, task=replace(record.task, after=("a-part",)))
+
+    tasks.update(here.where.state, slug, joined, found.revision)
+
+
+@pytest.mark.parametrize("feature", [False, True])
 def test_the_server_leaves_a_features_merge_to_the_owner(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, feature: bool
 ) -> None:
     here = here_of(tmp_path)
     opened(here, "the-feature", proposed=proposed(), reads=(read("merge"),))
-    opened(here, "a-task", proposed=proposed(), reads=(read("merge"),))
-    made(here, "a-part", part_of="the-feature", status="landed")
+    if feature:
+        feature_of(here, "the-feature")
     asked = asking(monkeypatch)
     kept = Kept()
     duty.tick(duty_of(here, HOUR, kept))
     ended(kept)
-    assert [(one.by, one.tip) for one in asked] == [("merger", TIP)]
-    assert sorted(kept.merging) == ["a-task"]
+    merged = [(one.by, one.tip) for one in asked]
+    assert merged == ([] if feature else [("merger", TIP)])
 
 
 @pytest.mark.parametrize(("feature", "subject"), [(False, None), (True, "Gift note")])
@@ -144,7 +157,7 @@ def test_where_the_history_keeps_commits_a_features_standing_merge_is_a_squash(
     (tmp_path / ".lem" / "settings.toml").write_text(KEEP)
     standing_task(here, "stands")
     if feature:
-        made(here, "a-part", part_of="stands", status="landed")
+        feature_of(here, "stands")
     asked = asking(monkeypatch)
     kept = Kept()
     duty.tick(duty_of(here, HOUR, kept))

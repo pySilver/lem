@@ -1,9 +1,11 @@
 """The base commit and tree each open task's merge reads, and whether a part names the task (a
-feature, which the owner merges)."""
+feature, which the owner merges), read from the task itself and the tasks it names, whatever
+their status (`app/tasks/parts.py`)."""
 
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from lem.app.tasks import parts
 from lem.model.landing import destination
 from lem.model.owner.looks import MergeBasis
 
@@ -45,11 +47,16 @@ def gathered(here: Here, branch: Branch | None, records: tuple[Record, ...]) -> 
         for record in records
         if needs_base(record)
     }
-    named = {record.task.part_of for record in records}
+    state = here.where.state
+    features = (
+        record.task.slug
+        for record in records
+        if record.task.status == "open" and parts.named(state, record.task)
+    )
     return Bases(
         settings=branch,
         refs={ref: read_base(here, ref) for ref in refs if ref},
-        features=frozenset(slug for slug in named if slug is not None),
+        features=frozenset(features),
     )
 
 

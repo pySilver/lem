@@ -56,6 +56,21 @@ class ForgeContract:
         assert world.forge.pull(opened.number).author == opened.author
         assert world.forge.repo().name.count("/") == 1
 
+    def test_the_open_pull_requests_into_a_branch_are_each_one_with_that_base(
+        self, tmp_path: Path
+    ) -> None:
+        world = self.world(tmp_path)
+        world.push("feature/x", {"f.txt": b"f\n"})
+        world.push("docs/part", {"p.txt": b"p\n"})
+        world.push("docs/other", {"o.txt": b"o\n"})
+        into = world.forge.open_pull("docs/part", "feature/x", "A part", "body")
+        world.forge.open_pull("docs/other", "main", "Another", "body")
+        found = world.forge.pulls_into("feature/x")
+        assert [(pull.number, pull.base) for pull in found] == [
+            (into.number, "feature/x")
+        ]
+        assert world.forge.pulls_into("feature/y") == ()
+
     def test_a_pull_requests_head_follows_its_branch(self, tmp_path: Path) -> None:
         world = self.world(tmp_path)
         world.push("fix-the-login", {"a.txt": b"a\n"})

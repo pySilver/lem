@@ -10,11 +10,13 @@ run, who merges and where a task lands (audit A1 and N5 of 2026-11-17 on `main`)
 from typing import TYPE_CHECKING
 
 from lem.model.landing import careful, careful_words
+from lem.model.landing.feature_said import careful_parts
 from lem.model.landing.green_words import reason
 from lem.model.landing.review import newest
 from lem.records.landing.record import Landing
 
 if TYPE_CHECKING:
+    from lem.model.landing.feature_seen import Feature
     from lem.model.landing.propose_facts import Facts
     from lem.records.record import Record
 
@@ -39,9 +41,12 @@ def edits(facts: Facts) -> tuple[str, ...]:
     return careful.settings_reasons(careful.Edits(settings=team, local=local))
 
 
-def why(record: Record, facts: Facts) -> tuple[str, ...]:
+def why(
+    record: Record, facts: Facts, feature: Feature | None = None
+) -> tuple[str, ...]:
     """Each reason the request is careful; none when it is not: the shape's topics, the
-    owner's word, the plan's call, an edit of Lem's settings, and the newest review's call."""
+    owner's word, the plan's call, an edit of Lem's settings, the newest review's call, and
+    each careful part of a feature."""
     task = record.task
     topics = task.shape.careful if task.shape else ()
     plan = ("the plan says so",) if task.plan and task.plan.careful else ()
@@ -51,6 +56,7 @@ def why(record: Record, facts: Facts) -> tuple[str, ...]:
         + plan
         + edits(facts)
         + review_call(record)
+        + careful_parts(feature)
     )
 
 

@@ -20,6 +20,7 @@ from lem.app.landing import (
     reconcile,
     step_release,
 )
+from lem.app.tasks import parts
 from lem.kernel.errors import Refusal
 from lem.model.landing import merge, merge_asked
 from lem.model.landing.reconcile import Found, reconciled
@@ -30,6 +31,13 @@ if TYPE_CHECKING:
     from lem.app.landing.frame import Context
     from lem.kernel.envelope import Envelope
     from lem.records.landing.merge import MergeIntent
+    from lem.records.task import Task
+
+
+def squashes(state: Path, task: Task, history: str) -> bool:
+    """Whether the merge of `task` lands one squashed commit, before any world is read: where
+    `branch.history` squashes, and always for a feature (`app/tasks/parts.py`)."""
+    return history == "squash" or parts.named(state, task)
 
 
 def shown(context: Context, intent: MergeIntent) -> Refusal | Found:

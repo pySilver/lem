@@ -13,10 +13,12 @@ import tomllib
 from typing import TYPE_CHECKING
 
 from lem.model.landing import careful_words
+from lem.model.landing.feature_said import careful_parts
 from lem.records.base import Frozen
 from lem.records.landing.record import Landing
 
 if TYPE_CHECKING:
+    from lem.model.landing.feature_seen import Feature
     from lem.records.record import Record
 
 SETTINGS_FILE = ".lem/settings.toml"
@@ -98,15 +100,19 @@ def settings_reasons(edits: Edits) -> tuple[str, ...]:
     return tuple(reason for reason in edited if reason)
 
 
-def reasons(record: Record, edits: Edits) -> tuple[str, ...]:
-    """Each reason the request is careful, in `main`'s order; none when it is not."""
+def reasons(
+    record: Record, edits: Edits, feature: Feature | None = None
+) -> tuple[str, ...]:
+    """Each reason the request is careful, in `main`'s order, then each careful part of a
+    feature; none when it is not."""
     task = record.task
     topics = task.shape.careful if task.shape else ()
     plan = task.plan.careful if task.plan else None
+    planned = (f"the plan says so: {plan}",) if plan else ()
+    own = (*careful_words.owner_says(record), *topics, *planned)
     return (
-        *careful_words.owner_says(record),
-        *topics,
-        *((f"the plan says so: {plan}",) if plan else ()),
+        *own,
         *settings_reasons(edits),
         *careful_words.review_reason(record.landing or Landing()),
+        *careful_parts(feature),
     )

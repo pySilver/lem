@@ -14,7 +14,7 @@ import threading
 from functools import partial
 from typing import TYPE_CHECKING
 
-from lem.app.landing import merge, parts
+from lem.app.landing import merge
 from lem.board import merge_look
 from lem.board.duties import merge_count, merge_said
 from lem.kernel import clock, errors
@@ -50,7 +50,7 @@ def subject_of(duty: Duty, record: records.Record) -> str | None:
     landing = record.landing
     pull = landing.pull if landing else None
     history = merge_look.branch_of(duty.here).history
-    squash = history == "squash" or parts.named(duty.state, record.task.slug)
+    squash = merge.squashes(duty.state, record.task, history)
     return pull.title if squash and pull else None
 
 

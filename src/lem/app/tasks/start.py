@@ -3,7 +3,8 @@
 
 His word lifts the queue whatever it was: an order of his, a need, or a task it waited for that
 was dropped. Its line keeps his words as he typed them; the task goes to `shaping` when its
-interview comes next, else to `building`.
+interview comes next, else to `building`. A feature keeps its parts in `after`, where its
+landing finds them.
 """
 
 from functools import partial
@@ -12,7 +13,7 @@ from typing import TYPE_CHECKING
 from msgspec.structs import replace
 
 from lem.app import task_reads
-from lem.app.tasks import release
+from lem.app.tasks import parts, release
 from lem.kernel import clock, errors
 from lem.model.task import holds, queue, table
 from lem.store import places, task_file, tasks
@@ -37,10 +38,18 @@ def may(folder: Path, slug: str) -> queue.May:
     return queue.May(slug=slug, running=queue.running(slug, shown))
 
 
-def started(record: Record, *, status: Status, words: str, now: Moment) -> Record:
+def started(
+    record: Record,
+    *,
+    status: Status,
+    words: str,
+    now: Moment,
+    kept: tuple[str, ...] = (),
+) -> Record:
     """The record of a queued task his word starts: no queue, no wait for his order, and
-    his words in the journal's line."""
-    unqueued = replace(record, task=replace(record.task, after=(), order=None))
+    his words in the journal's line. A feature keeps its parts in `after` (`kept`), where its
+    landing finds them; a task that is no longer queued waits for none of them."""
+    unqueued = replace(record, task=replace(record.task, after=kept, order=None))
     line = f'the owner\'s word: "{words}"'
     return holds.moved(unqueued, status=status, line=line, now=now)
 
@@ -59,12 +68,18 @@ def startable(task: Task) -> None:
         )
 
 
+def change_of(state: Path, record: Record, status: Status, words: str) -> tasks.Change:
+    """The change his word makes to the queued task of `record`, a feature's parts kept."""
+    kept = parts.kept(state, record.task)
+    return partial(started, status=status, words=words, now=clock.now(), kept=kept)
+
+
 def start(folder: Path, slug: str, words: str) -> table.Moved:
     """His "start SLUG now": the queued task starts."""
     state = places.workspace(folder).state
     record = release.checked(state, slug)
     startable(record.task)
     status = queue.started_in(record.task)
-    change = partial(started, status=status, words=words, now=clock.now())
+    change = change_of(state, record, status, words)
     tasks.update(state, slug, change, record.revision)
     return table.Moved(slug=slug, was=record.task.status, status=status)

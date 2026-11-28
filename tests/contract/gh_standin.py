@@ -170,6 +170,9 @@ def counted(state: State, pull: Pull) -> int:
 def listed(forge: LocalForge, words: list[str]) -> object:
     """What gh prints for `pr list` and `pr create`."""
     if words[1] == "list":
+        base = option(words, "--base")
+        if option(words, "--state") == "open" and base and not option(words, "--head"):
+            return [shaped(pull) for pull in forge.pulls_into(base)]
         if option(words, "--state") == "open":
             return [shaped(pull) for pull in forge.open_pulls()]
         found = forge.find_pulls(option(words, "--head") or "", option(words, "--base"))

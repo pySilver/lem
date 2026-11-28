@@ -42,10 +42,9 @@ def git_line(context: Context, *words: str) -> str:
 
 
 def part_read(context: Context, part: PartSeen) -> PartRead:
-    """One part as the review lists it, with the command of its whole diff when its review
-    called it careful."""
-    pull, merged = part.pull, part.merged
-    careful = bool(part.review and part.review.careful)
+    """One part as the review lists it, with the command of its whole diff when it is
+    careful."""
+    pull, merged, careful = part.pull, part.merged, part.careful
     whole = merged is not None and careful
     diff = git_line(context, "diff", merged.parent, merged.commit) if whole else None
     return PartRead(

@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from lem.kernel.errors import Refusal
 
 if TYPE_CHECKING:
-    from lem.model.landing.feature_seen import PartSeen
+    from lem.model.landing.feature_seen import Feature, PartSeen
     from lem.model.landing.world import World
     from lem.records.landing.review import Reviewed
     from lem.records.record import Record
@@ -55,7 +55,7 @@ def verdict(part: PartSeen) -> str:
         return ""
     counts = review.counts
     tally = f"{counts.must_fix} must-fix, {counts.should} should, {counts.nit} nit"
-    careful = "careful" if review.careful else "not careful"
+    careful = "careful" if part.careful else "not careful"
     green = GREEN[part.green]
     return f"review {review.kind}: {tally}, {careful}{green}"
 
@@ -76,3 +76,9 @@ def lines(world: World) -> tuple[str, ...]:
     if feature is None:
         return ()
     return tuple(map(part_line, feature.parts))
+
+
+def careful_parts(feature: Feature | None) -> tuple[str, ...]:
+    """Each careful part as a reason the feature is careful: it takes the full review."""
+    parts = feature.parts if feature else ()
+    return tuple(f"part {part.slug} is careful" for part in parts if part.careful)

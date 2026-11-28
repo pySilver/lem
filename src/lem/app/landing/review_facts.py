@@ -81,7 +81,7 @@ def facts(context: Context, found: Gathered) -> review_due.Facts:
     checked = (context.record.landing or Landing()).checked
     paths = {one.path for one in checked.lowered} if checked else set()
     return review_due.Facts(
-        careful=careful.reasons(context.record, found.edits),
+        careful=careful.reasons(context.record, found.edits, context.world.feature),
         folder=backlog.FOLDER,
         at_base=found.at_base,
         lowered=tuple(sorted(paths)),

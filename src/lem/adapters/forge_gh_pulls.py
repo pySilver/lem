@@ -33,6 +33,9 @@ if TYPE_CHECKING:
     from lem.ports.forge_facts import MergeMethod, MergeOutcome, MergeText, Pull
 
 BODY = ("--body-file", "-")
+# How many open pull requests into one branch `pulls_into` reads; that many is a fault, so that
+# none is missed. A guess: a feature's branch takes a few parts at a time.
+INTO_LIMIT = 500
 # What only GitHub's own answer to a merge says: its API's refusal, in its words.
 GITHUBS = (
     "graphql:",
@@ -108,7 +111,17 @@ class Pulls(Gh):
 
 
 class Refs(Gh):
-    """The forge's copy of a task branch, deleted only at the commit named."""
+    """The forge's copy of a task branch, deleted only at the commit named, and the open pull
+    requests into a branch."""
+
+    def pulls_into(self, branch: str) -> tuple[Pull, ...]:
+        words = ("--base", branch, "--state", "open", "--limit", str(INTO_LIMIT))
+        said = self.said(PR, "list", *words, JSON, FIELDS)
+        found = msgspec.json.decode(said, type=list[GhPull])
+        if len(found) >= INTO_LIMIT:
+            why = f"{branch} has {INTO_LIMIT} open pull requests or more into it"
+            raise Unanswered("gh", f"{why}: Lem reads them all or none")
+        return tuple(self.pull_of(pull) for pull in found)
 
     def delete_ref(self, name: str, expect: str) -> bool:
         lease = f"--force-with-lease={name}:{expect}"

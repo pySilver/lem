@@ -43,6 +43,12 @@ def merge_in_progress(record: Record, where: str) -> Refusal:
     )
 
 
+def pull_of(world: World) -> str:
+    """How a teammate's commits come into the branch: by a rebase, or for a feature, whose
+    branch holds merge commits that a rebase drops, by a merge."""
+    return "pull --rebase" if world.feature is None else "pull --no-rebase"
+
+
 def teammate(
     record: Record, world: World, theirs: tuple[str, ...], where: str
 ) -> Refusal:
@@ -57,9 +63,9 @@ def teammate(
         "teammate",
         f"origin's {branch} holds {len(theirs)} commit(s) that Lem did not push and the "
         f"task's branch does not hold: {named}{rest}. A push would remove them",
-        f"`git -C {shlex.quote(where)} pull --rebase origin {branch}` brings them into the task's "
-        f"branch; then lem land base {slug} runs again: they are part of the change, with "
-        "its checks and a read",
+        f"`git -C {shlex.quote(where)} {pull_of(world)} origin {branch}` brings them into "
+        f"the task's branch; then lem land base {slug} runs again: they are part of the "
+        "change, with its checks and a read",
     )
 
 

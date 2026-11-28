@@ -154,6 +154,9 @@ class LocalForge:
             return MergeTaken(queued="the merge queue")
         return self.merged(number, method, text)
 
+    def pulls_into(self, branch: str) -> tuple[Pull, ...]:
+        return tuple(pull for pull in self.open_pulls() if pull.base == branch)
+
     def delete_ref(self, name: str, expect: str) -> bool:
         if not name.startswith("refs/heads/"):
             raise Unanswered("gh", f"{name} is no full name of a branch")

@@ -266,9 +266,10 @@ def test_a_feature_of_two_parts_ends_as_one_squash_on_main_after_its_turn(
     brief = landed_to_its_proposal(capsys, world, main)
 
     read = brief["feature"]
+    # in the order of the feature's `after`
     assert [(part["slug"], part["status"]) for part in read["parts"]] == [
-        (SECOND, "landed"),
         (FIRST, "landed"),
+        (SECOND, "landed"),
     ]
     assert all(part["pull"] and part["review"] for part in read["parts"])
     subjects = [one["subject"] for one in read["commits"]]

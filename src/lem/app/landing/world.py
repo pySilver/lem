@@ -4,7 +4,7 @@
 Origin is fetched first, from the main checkout, so origin's base and the task's branch there
 are as they are now. The pull request is the one on record, by its number, else every open one
 on the task's branch (a run cut off after the forge made it wrote none down). A feature's world
-holds its parts too (`parts.py`).
+holds its parts too (`app/tasks/parts.py`).
 """
 
 from typing import TYPE_CHECKING
@@ -14,11 +14,10 @@ from msgspec.structs import replace
 from lem.app.landing import (
     branch_checks,
     item_carry,
-    parts,
     pull_identity,
     review_item,
 )
-from lem.app.tasks import bases, where
+from lem.app.tasks import bases, parts, where
 from lem.model.landing import destination
 from lem.model.landing import world as facts
 from lem.settings import load as settings_load
@@ -128,5 +127,5 @@ def gather(
     world = review_item.gathered(ports.git, path, record, world)
     world = branches(ports, workspace.checkout, world)
     world = pull_identity.in_world(ports.forge, record, world)
-    found = parts.seen(ports.forge, workspace, record, world)
+    found = parts.seen(ports.forge, workspace.state, record, world)
     return world if found is None else replace(world, feature=found)

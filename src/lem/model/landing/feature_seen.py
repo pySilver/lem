@@ -15,13 +15,15 @@ from lem.records.landing.review import Reviewed
 
 class PartSeen(Frozen, frozen=True, kw_only=True):
     """One part as its record reads now: its slug and status, its pull request, whether its
-    proposal was green, its newest answered review, and its merge into the feature's branch
-    (`Merged.parent` to `Merged.commit`)."""
+    proposal was green, whether it is careful (its proposal's call, from the owner's word, its
+    topics or an edit of Lem's settings, or its newest review's call), its newest answered
+    review, and its merge into the feature's branch (`Merged.parent` to `Merged.commit`)."""
 
     slug: Slug
     status: str
     pull: Pull | None = None
     green: bool | None = None
+    careful: bool = False
     review: Reviewed | None = None
     merged: Merged | None = None
 

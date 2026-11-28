@@ -149,7 +149,7 @@ def decide(
     notes = propose_notes.parsed(facts.notes)
     if isinstance(notes, Refusal):
         return notes
-    careful = propose_careful.why(record, facts)
+    careful = propose_careful.why(record, facts, world.feature)
     adopt = (
         propose_gates.gates(record, world, facts, careful=bool(careful))
         or written(record, facts, notes, title, careful=bool(careful))

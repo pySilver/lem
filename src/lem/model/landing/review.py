@@ -52,7 +52,7 @@ def unmet(record: Record, review: Reviewed | None, world: World) -> tuple[str, .
     landing = record.landing or Landing()
     least = review_due.floor(
         record,
-        careful.reasons(record, careful.Edits()),
+        careful.reasons(record, careful.Edits(), world.feature),
     )
     left = (
         f"the last one left {must_fix(review)} must-fix" if must_fix(review) else None,

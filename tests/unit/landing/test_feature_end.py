@@ -13,16 +13,21 @@ from msgspec.structs import replace
 from lem.kernel.errors import Refusal
 from lem.model.landing import (
     base,
+    base_said,
+    careful,
     checks,
     feature,
     feature_said,
     merge,
     merge_call,
     merge_lines,
+    propose_careful,
+    review_due,
     start,
     start_said,
 )
 from lem.model.landing.feature_seen import Feature, PartSeen, Targeting
+from lem.model.landing.propose_facts import Facts
 from lem.model.landing.world import Due, Held, Rules
 from lem.model.owner.looks import Look, MergeBasis
 from lem.model.owner.merging import owner_reason
@@ -210,8 +215,7 @@ def test_the_merge_is_refused_while_a_pull_request_goes_into_the_features_branch
 
 
 def test_a_part_without_a_review_is_listed_by_its_pull_request_alone() -> None:
-    assert PART.review is not None
-    careful = replace(PART, review=replace(PART.review, careful=True), green=False)
+    careful = replace(PART, careful=True, green=False)
     assert feature_said.part_line(careful).endswith(", careful, not green")
     assert feature_said.part_line(DROPPED) == "- android-list: no pull request, dropped"
     assert feature_said.lines(world()) == ()
@@ -274,3 +278,25 @@ def test_a_merge_in_progress_is_the_builders_and_base_names_it() -> None:
             "lem land base fix-the-login runs again"
         ),
     )
+
+
+def test_a_careful_part_makes_the_feature_careful_and_its_review_full() -> None:
+    record = task("landing")
+    careful_part = replace(PART, careful=True)
+    found = Feature(parts=(careful_part, DROPPED))
+    reason = "part save-endpoint is careful"
+    assert careful.reasons(record, careful.Edits(), found) == (reason,)
+    assert propose_careful.why(record, Facts(), found) == (reason,)
+    assert careful.reasons(record, careful.Edits(), FEATURE) == ()
+    assert careful.reasons(record, careful.Edits()) == ()
+    least = review_due.floor(record, careful.reasons(record, careful.Edits(), found))
+    assert least.kind == "full"
+
+
+def test_a_teammates_commit_on_a_features_branch_comes_in_by_a_merge() -> None:
+    record = task("landing")
+    theirs = ('aaaaaaaaa "a teammate"',)
+    plain = base_said.teammate(record, world(), theirs, "/w")
+    assert "pull --rebase origin" in plain.fix
+    merged = base_said.teammate(record, world(feature=FEATURE), theirs, "/w")
+    assert "pull --no-rebase origin" in merged.fix
