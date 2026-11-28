@@ -2,13 +2,14 @@
 
 The record is read through the release stop; the table refuses a move of an ended task, a
 lead's move over a task with its landing, a move over a park or a seat's block, and a move the
-table does not have. A drop goes through `app/tasks/drop.py`, under the landing's step lock.
+table does not have. A drop goes through `app/tasks/drop.py`, under the landing's step lock, and
+the drop of a feature drops its parts first (`app/tasks/drop_feature.py`).
 """
 
 from functools import partial
 from typing import TYPE_CHECKING
 
-from lem.app.tasks import drop, move_state, release
+from lem.app.tasks import drop_feature, move_state, release
 from lem.kernel import clock
 from lem.model.task import ending, holds, table
 from lem.store import places, task_file, tasks
@@ -16,6 +17,7 @@ from lem.store import places, task_file, tasks
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from lem.kernel.envelope import Envelope
     from lem.records.base import Moment
     from lem.records.record import Record
     from lem.records.task import Status
@@ -47,12 +49,13 @@ def moved(
     status: Status,
     lines: tuple[str, ...],
     start_over: str | None = None,
-) -> table.Moved:
-    """Move the task `slug` to `status`, with the stage's lines."""
+) -> table.Moved | Envelope:
+    """Move the task `slug` to `status`, with the stage's lines; the drop of a feature gives
+    its line for the owner too."""
     where = places.workspace(folder)
     line = "; ".join(lines) or status
     if status == "dropped":
-        return drop.dropped(where, slug, line)
+        return drop_feature.feature_dropped(where, slug, line)
     record = release.checked(where.state, slug)
     refused = table.refusal(record.task, status, start_over) or table.gate(
         record, status, task_file.named(where.state, record.task.after)
