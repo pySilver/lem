@@ -68,9 +68,9 @@ class PullSeen(Frozen, frozen=True, kw_only=True):
 
 class World(Frozen, frozen=True, kw_only=True):
     """The facts of one moment: the task's branch and worktree (its tip and tree, clean, a
-    rebase in progress), origin's base, its tree and whether the tip holds it, origin's task
-    branch and whether the tip holds it, the local branch and whether origin's base holds it,
-    the pull request on record, the open ones on the branch while none is on record
+    rebase or a merge in progress), origin's base, its tree and whether the tip holds it,
+    origin's task branch and whether the tip holds it, the local branch and whether origin's
+    base holds it, the pull request on record, the open ones on the branch while none is on record
     (`candidates`), the settings and the moment; and for a feature, its parts and the open
     pull requests into its branch (None for a task that no part names)."""
 
@@ -83,6 +83,7 @@ class World(Frozen, frozen=True, kw_only=True):
     tree: Sha | None = None
     clean: bool = False
     rebasing: bool = False
+    merging: bool = False
     base_in_tip: bool = False
     remote: Sha | None = None
     remote_in_tip: bool = False

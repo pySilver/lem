@@ -20,6 +20,7 @@ from lem.model.landing import (
     merge_call,
     merge_lines,
     start,
+    start_said,
 )
 from lem.model.landing.feature_seen import Feature, PartSeen, Targeting
 from lem.model.landing.world import Due, Held, Rules
@@ -252,4 +253,24 @@ def test_a_merge_conflict_of_the_feature_names_the_commit_that_ends_it() -> None
     assert (
         refused(feature_said.merge_refused(record, world(), "locked"))[0]
         == "git-refused"
+    )
+
+
+def test_a_merge_in_progress_is_the_builders_and_base_names_it() -> None:
+    record = task("landing")
+    stopped = world(merging=True, clean=False)
+    assert start_said.unready(record, stopped) is None
+    assert start_said.unready(record, world(clean=False)) is not None
+    found = base.holds(record, stopped)
+    assert found == Due(step="base", why="a merge is in progress in the worktree")
+    assert refused(base.decide(record, stopped, base.Facts(ahead=1), "/w t")) == (
+        "merge-in-progress",
+        (
+            "a merge is in progress in the worktree of fix-the-login, a builder's "
+            "resolution: base starts no merge over it and aborts none"
+        ),
+        (
+            "the builder commits the resolution (`git -C '/w t' commit --no-edit`), then "
+            "lem land base fix-the-login runs again"
+        ),
     )

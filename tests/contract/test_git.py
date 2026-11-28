@@ -411,6 +411,31 @@ def test_a_merge_whose_commit_a_hook_refuses_leaves_no_merge_behind(
     assert world.git.clean(where)
 
 
+@pytest.mark.parametrize("body", [b"resolved\n", b"ours\n"])
+def test_a_merge_over_a_builders_merge_in_progress_is_refused_and_aborts_nothing(
+    tmp_path: Path, body: bytes
+) -> None:
+    world = real_world(tmp_path)
+    where = task_worktree(world)
+    tip = commit_file(world, where, "README.md", b"ours\n")
+    theirs = world.outside_commit("main", {"README.md": b"theirs\n"})
+    world.git.fetch(where)
+    assert world.git.merge_head(where) is None
+    assert world.git.merge(where, theirs, "Merge origin/main") == Conflict(
+        files=("README.md",)
+    )
+    # the builder resolves and stages, and commits nothing; "ours" leaves HEAD's tree
+    (where / "README.md").write_bytes(body)
+    run_git(where, "add", "--all")
+    assert world.git.merge_head(where) == theirs
+    again = world.git.merge(where, theirs, "Merge origin/main")
+    assert isinstance(again, GitRefused)
+    assert "MERGE_HEAD" in again.said
+    assert world.git.merge_head(where) == theirs
+    assert world.git.tip(where, "HEAD") == tip
+    assert (where / "README.md").read_bytes() == body
+
+
 def test_a_push_whose_lease_git_refuses_after_the_read_says_stale_info(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

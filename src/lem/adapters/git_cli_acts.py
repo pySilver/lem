@@ -3,6 +3,8 @@ worktrees and branches (`GitBranches`).
 
 A merge makes a merge commit of the ref named, never a fast-forward and never a rebase; one that
 stops on a conflict stays for a builder to resolve, and one git refuses leaves nothing behind. A
+merge already in progress is refused and left as it is: only a merge the call started is ever
+aborted. A
 push sends the commit named, never what the branch holds by then, with a lease on the commit
 Lem pushed last, or on no branch at all when it is new (`landing.md` H 3); a branch moves back
 or is deleted only at the commit named, and is never deleted while a worktree has it.
@@ -22,6 +24,9 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 HEADS = "refs/heads/"
+MERGE_IN_PROGRESS = (
+    "a merge is in progress (MERGE_HEAD exists), and it was left as it is"
+)
 WORKTREE = "worktree"
 
 
@@ -49,6 +54,9 @@ class Rewrite(Shell):
     def merge(
         self, worktree: Path, ref: str, message: str
     ) -> str | Conflict | GitRefused:
+        if self.commit_at(worktree, "MERGE_HEAD") is not None:
+            # a merge this call did not start is a builder's: it is never aborted here
+            return GitRefused(said=MERGE_IN_PROGRESS)
         made = ("merge", QUIET, "--no-ff", "--no-edit", "--message", message, ref)
         ran = self.tried(worktree, *made)
         if not ran.returncode:

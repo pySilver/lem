@@ -26,14 +26,16 @@ if TYPE_CHECKING:
 
 def ready(sync: Sync) -> None:
     """Refuse a worktree that is not there, is on another branch, or holds changes that no
-    commit holds (a merge that stopped among them)."""
+    commit holds, or a merge not committed yet (a builder's resolution may leave the tree as
+    HEAD has it)."""
     place, git = sync.place, sync.git
     if not (place.worktree / ".git").exists():
         raise sync_stops.no_worktree(place)
     on = git.branch_of(place.worktree)
     if on != place.branch:
         raise sync_stops.off_branch(place, on)
-    if not git.clean(place.worktree, untracked=False):
+    stopped = git.merge_head(place.worktree) is not None
+    if stopped or not git.clean(place.worktree, untracked=False):
         raise sync_stops.dirty(place)
 
 

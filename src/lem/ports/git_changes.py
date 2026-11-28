@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from lem.ports.git_facts import Commit
+    from lem.records.base import Sha
 
 
 class GitChanges(Protocol):
@@ -19,9 +20,11 @@ class GitChanges(Protocol):
     `tip` that `onto` lacks but whose patch it holds (`git log --cherry-mark`), which a rebase
     onto it leaves out; and the diff of a merge commit against git's own merge of its parents
     (`git show --remerge-diff`), empty for a merge git made alone, whose form "is subject to
-    change" (git-show, 2026-11-27)."""
+    change" (git-show, 2026-11-27); and the commit a merge in progress takes in (`MERGE_HEAD`),
+    None while no merge is in progress."""
 
     def files(self, where: Path, rev: str, folder: str) -> tuple[str, ...]: ...
     def changed_paths(self, where: Path, since: str, until: str) -> tuple[str, ...]: ...
     def left_out(self, where: Path, onto: str, tip: str) -> tuple[Commit, ...]: ...
     def remerge(self, where: Path, commit: str) -> str: ...
+    def merge_head(self, where: Path) -> Sha | None: ...

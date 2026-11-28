@@ -73,8 +73,9 @@ def holds(record: Record, world: World) -> Held | Due:
     """Whether the branch is on origin's base as it is now, with a commit of its own."""
     landing = record.landing or Landing()
     based = landing.based
-    if world.rebasing:
-        return Due(step=STEP, why="a rebase is in progress in the worktree")
+    if world.rebasing or world.merging:
+        which = "rebase" if world.rebasing else "merge"
+        return Due(step=STEP, why=f"a {which} is in progress in the worktree")
     if foreign(landing, world):
         return Due(step=STEP, why="origin's branch has a commit Lem did not push")
     if based is None or based.base != world.base or not world.base_in_tip:

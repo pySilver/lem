@@ -81,8 +81,8 @@ def empty_cleanup(
 
 
 def in_worktree(ports: Ports, path: Path, world: facts.World) -> facts.World:
-    """The worktree's facts: its tip and tree, clean, a rebase, and whether it holds origin's
-    base. A worktree that is not there leaves them unset."""
+    """The worktree's facts: its tip and tree, clean, a rebase or a merge in progress, and
+    whether it holds origin's base. A worktree that is not there leaves them unset."""
     git = ports.git
     tip = git.tip(path, "HEAD") if path.is_dir() else None
     if tip is None:
@@ -93,6 +93,7 @@ def in_worktree(ports: Ports, path: Path, world: facts.World) -> facts.World:
         tree=git.tree(path, tip),
         clean=git.clean(path),
         rebasing=git.rebase_state(path) is not None,
+        merging=git.merge_head(path) is not None,
         base_in_tip=git.is_ancestor(path, world.base, tip),
     )
 

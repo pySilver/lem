@@ -30,6 +30,19 @@ def in_progress(record: Record, where: str) -> Refusal:
     )
 
 
+def merge_in_progress(record: Record, where: str) -> Refusal:
+    """The refusal of a worktree where a merge is in progress: a builder's resolution of a
+    conflict of the merge of origin's base, which an abort would delete."""
+    slug, quoted = record.task.slug, shlex.quote(where)
+    return Refusal(
+        "merge-in-progress",
+        f"a merge is in progress in the worktree of {slug}, a builder's resolution: base "
+        "starts no merge over it and aborts none",
+        f"the builder commits the resolution (`git -C {quoted} commit --no-edit`), then lem "
+        f"land base {slug} runs again",
+    )
+
+
 def teammate(
     record: Record, world: World, theirs: tuple[str, ...], where: str
 ) -> Refusal:
@@ -92,6 +105,8 @@ def blocked(record: Record, world: World, facts: Facts, where: str) -> Refusal |
     landing = record.landing or Landing()
     if world.rebasing:
         return in_progress(record, where)
+    if world.merging:
+        return merge_in_progress(record, where)
     if not facts.on_branch:
         return start_said.off_branch(record, world)
     foreign = (

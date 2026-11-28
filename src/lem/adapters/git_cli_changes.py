@@ -22,7 +22,8 @@ MARKED = f"--format=%m%x00{LOG_FIELDS}"
 
 class Changes(Shell):
     """The files under a folder at a commit, the paths of a range, the commits a rebase
-    leaves out because the base holds their patch, and a merge's own changes."""
+    leaves out because the base holds their patch, a merge's own changes, and a merge in
+    progress."""
 
     def files(self, where: Path, rev: str, folder: str) -> tuple[str, ...]:
         named = ("ls-tree", "-r", "--name-only", "-z", "--full-tree", rev, "--", folder)
@@ -40,6 +41,9 @@ class Changes(Shell):
     def remerge(self, where: Path, commit: str) -> str:
         shown = ("show", "--remerge-diff", "--format=", "--no-color", "--no-ext-diff")
         return self.output(where, *shown, commit).decode(errors="replace")
+
+    def merge_head(self, where: Path) -> str | None:
+        return self.commit_at(where, "MERGE_HEAD")
 
     def names(self, where: Path, *args: str) -> tuple[str, ...]:
         """The names of a `-z` list git gives for `args`, as filesystem paths."""

@@ -218,6 +218,30 @@ def test_a_conflicting_sync_stops_with_its_files_and_pushes_nothing(
     assert on_origin == "The feature and main say receive."
 
 
+def test_a_sync_over_a_resolution_not_yet_committed_is_refused_and_keeps_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    started(capsys, world, {"README.md": "The feature says receive.\n"})
+    ok(capsys, world, "task", "open", PART, "--ask", "a part", "--part-of", FEATURE)
+    base = world.repo.outside_commit("main", {"README.md": b"Main says receive.\n"})
+    stopped = lem(capsys, world.checkout, "task", "sync", FEATURE)
+    assert stopped["refusal"]["code"] == "conflict", stopped
+
+    # the builder keeps the feature's side and stages it: the tree is HEAD's, and the merge
+    # waits for its commit
+    tree = worktree(world, FEATURE)
+    (tree / "README.md").write_text("The feature says receive.\n")
+    run_git(tree, "add", "--all")
+    again = lem(capsys, world.checkout, "task", "sync", FEATURE)
+    assert again["refusal"]["code"] == "dirty", again
+    assert run_git(tree, "rev-parse", "MERGE_HEAD") == base
+
+    run_git(tree, "commit", "--quiet", "--no-edit")
+    synced = ok(capsys, world, "task", "sync", FEATURE)["result"]
+    assert synced["pushed"] is True
+
+
 def test_a_red_check_on_the_merge_pushes_nothing_until_a_builder_repairs_it(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
 ) -> None:

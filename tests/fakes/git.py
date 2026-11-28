@@ -413,6 +413,11 @@ class ModelGit:
         )
         return "".join(self.remerged(path, stored.tree.get(path)) for path in changed)
 
+    def merge_head(self, where: Path) -> str | None:
+        found = self.worktrees.get(where)
+        stopped = found.merging if found else None
+        return stopped.other if stopped else None
+
     def auto_merge(self, parents: tuple[str, ...]) -> tuple[Tree, tuple[str, ...]]:
         """What git would make of the parents alone: the merge of the first two over their
         base, or the one parent's tree."""

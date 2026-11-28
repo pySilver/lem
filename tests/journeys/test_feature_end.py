@@ -177,11 +177,14 @@ def turned(capsys: Capsys, world: World) -> None:
     ok(capsys, world, "task", "may-start", FEATURE)
 
 
-def ended_by_its_lead(capsys: Capsys, world: World) -> None:
+def ended_by_its_lead(
+    capsys: Capsys, world: World, *, started_now: bool = False
+) -> None:
     """The lead of the end: its plan, the builder's test of the whole feature, and the
-    feature made ready."""
-    line = ("--line", "the lead of the end")
-    ok(capsys, world, "task", "move", FEATURE, "building", *line)
+    feature made ready; `started_now` when the owner's word started it already."""
+    if not started_now:
+        line = ("--line", "the lead of the end")
+        ok(capsys, world, "task", "move", FEATURE, "building", *line)
     ok(capsys, world, "task", "span", FEATURE, "lead", "start", "--by", "session")
     name = ok(capsys, world, "task", "plan-file", FEATURE)["result"]["path"]
     tests = "   - test: `sh tests/agree.sh` in `tests/agree.sh`\n"
@@ -343,3 +346,38 @@ def test_the_feature_does_not_merge_while_a_teammates_pull_request_goes_into_it(
     assert f"#{theirs.number} from docs/teammate ({theirs.url})" in refusal["why"]
     assert world.repo.head_of("main") == main
     assert world.forge.merge_calls[-1][0] != 3
+
+
+def test_a_resolution_of_the_bases_merge_not_yet_committed_is_refused_and_kept(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+) -> None:
+    world = made(tmp_path, monkeypatch)
+    started(capsys, world)
+    ok(capsys, world, "task", "open", FIRST, "--ask", "a part", "--part-of", FEATURE)
+    drop = ("--line", "the owner drops it")
+    ok(capsys, world, "task", "move", FIRST, "dropped", *drop)
+    # behind a dropped part the feature waits for the owner's word
+    ok(capsys, world, "task", "start", FEATURE, "--words", "start x now")
+    ended_by_its_lead(capsys, world, started_now=True)
+    main = world.repo.outside_commit("main", {"FEATURE.md": b"Main's own.\n"})
+    ok(capsys, world, "land", "start", FEATURE)
+    stopped = lem(capsys, world.checkout, "land", "base", FEATURE)
+    assert stopped["refusal"]["code"] == "conflict", stopped
+    assert "FEATURE.md" in stopped["refusal"]["why"]
+
+    # the builder resolves and stages the file, and commits nothing yet
+    tree = worktree(world, FEATURE)
+    (tree / "FEATURE.md").write_text("The feature, and main's own.\n")
+    run_git(tree, "add", "--all")
+    assert due(capsys, world) == "base"
+    again = lem(capsys, world.checkout, "land", "base", FEATURE)
+    assert again["refusal"]["code"] == "merge-in-progress", again
+    assert "commit --no-edit" in again["refusal"]["fix"]
+    assert run_git(tree, "rev-parse", "MERGE_HEAD") == main
+    assert (tree / "FEATURE.md").read_text() == "The feature, and main's own.\n"
+
+    run_git(tree, "commit", "--quiet", "--no-edit")
+    ok(capsys, world, "land", "base", FEATURE)
+    head = run_git(tree, "rev-parse", "HEAD")
+    parents = run_git(tree, "rev-list", "--parents", "-n", "1", head)
+    assert parents.split()[2:] == [main]
