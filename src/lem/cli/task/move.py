@@ -3,7 +3,8 @@
     lem task move SLUG STATUS [--line L]... [--start-over WHY]
 
 A move by the table of statuses (`model/task/table.py`); `dropped` is the owner's drop, under
-the landing's step lock (`app/tasks/drop.py`); `--start-over WHY` gives a task with its landing
+the landing's step lock, of a feature with each of its parts that has not ended
+(`app/tasks/drop.py`); `--start-over WHY` gives a task with its landing
 back to `ready`, only where the landing's refusal names it.
 """
 
@@ -17,6 +18,7 @@ from lem.cli import place
 from lem.cli.words import choice
 
 if TYPE_CHECKING:
+    from lem.kernel.envelope import Envelope
     from lem.model.task.table import Moved
 
 type Status = Literal[
@@ -42,7 +44,7 @@ class Call(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True
     start_over: str | None = None
 
 
-def run(call: Call) -> Moved:
+def run(call: Call) -> Moved | Envelope:
     """Move the task."""
     return move.moved(
         place.folder(), call.slug, call.status, call.lines, call.start_over

@@ -323,10 +323,11 @@ Size: full, because the README and the notes change, in three parts.
 THREE = (FIRST, SECOND, "changes-say-two")
 
 
-def approved_feature(capsys: Capsys, world: World) -> str:
-    """The feature `x`, shaping, its criteria read by the personas and approved by the owner;
-    the path of its criteria."""
-    ok(capsys, world, "task", "open", FEATURE, "--ask", "the docs, in three parts")
+def approved_feature(capsys: Capsys, world: World, *ticket: str) -> str:
+    """The feature `x`, shaping, from the ticket `ticket` names when it names one, its
+    criteria read by the personas and approved by the owner; the path of its criteria."""
+    ask = ("--ask", "the docs, in three parts", *ticket)
+    ok(capsys, world, "task", "open", FEATURE, *ask)
     words = ("--type", "docs", "--why", "the docs", "--track", "full")
     ok(capsys, world, "task", "read", FEATURE, *words, "--then", "interview")
     path = world.written("criteria.md", SPLIT)

@@ -87,3 +87,17 @@ def waiting(every: tuple[Record, ...], task: Task) -> bool:
         return True
     features = (one.task for one in every if one.task.slug == task.part_of)
     return any(task.slug in found.after for found in features)
+
+
+def rejoined(workspace: places.Workspace, task: Task) -> None:
+    """A part resumed as the new task `task` joins its feature before its record is
+    published, as a new part does, so the feature waits for it; nothing for a task that is no
+    part. The queue rule then waits for it in place of the part it went on from
+    (`model/task/behind.py`, `went_on`)."""
+    feature = task.part_of
+    if feature is None:
+        return
+    found = tasks.read(workspace.state, feature).task
+    if found.branch is None:
+        raise part_of.no_branch(task.slug, found)
+    added(workspace, task.slug, feature, found.branch)

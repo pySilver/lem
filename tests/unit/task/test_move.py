@@ -49,8 +49,11 @@ PULL_URL = "https://github.com/owner/project/pull/7"
 def moved(
     where: Workspace, status: Status, *lines: str, start_over: str | None = None
 ) -> table.Moved:
-    """Move the task `SLUG` from the folder of the call."""
-    return move.moved(where.checkout, SLUG, status, lines, start_over)
+    """Move the task `SLUG` from the folder of the call: a task with no parts, whose move
+    gives no envelope of its own."""
+    found = move.moved(where.checkout, SLUG, status, lines, start_over)
+    assert isinstance(found, table.Moved)
+    return found
 
 
 def refusal(where: Workspace, status: Status, start_over: str | None = None) -> str:

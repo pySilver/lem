@@ -1,9 +1,9 @@
 """A workspace whose tracker is GitHub's, over an in-memory stand-in for the issues of origin
-(`FakeIssues`, the parts `lem.app.tasks.issues.facts.Issues` names), and the tasks a test puts
-there. The adapter itself is held by `tests/contract/test_tracker.py`, against a stand-in for gh."""
+(`fakes/issues.py`, the parts `lem.app.tasks.issues.facts.Issues` names), and the tasks a test
+puts there. The adapter itself is held by `tests/contract/test_tracker.py`, against a stand-in for gh."""
 
 import dataclasses
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import msgspec
@@ -11,12 +11,11 @@ from msgspec.structs import replace
 
 from fakes.forge import LocalForge
 from fakes.git import ModelGit
+from fakes.issues import REPO, FakeIssues
 from fakes.ports import fake_ports
 from fakes.records import MOMENT
 from fakes.records import noted as note
-from lem.adapters.tracker_gh_facts import Checked, Comment, Issue
-from lem.kernel.errors import Refusal
-from lem.ports.tracker import Receipt, TicketView
+from lem.adapters.tracker_gh_facts import Comment, Issue
 from lem.records.tickets import Ticket, TicketStep
 from lem.store import tasks
 from unit.task.spaces import SETTINGS, made, read, workspace
@@ -25,12 +24,10 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from lem.app.wiring import Ports
-    from lem.ports.tracker import TrackerStep
     from lem.records.record import Record
     from lem.store.places import Workspace
 
 GITHUB = f'{SETTINGS}[tracker]\nkind = "github"\n'
-REPO = "acme/shop"
 SLUG = "export-keeps-gift-note"
 OUTCOME = (
     "# The gift note\n\n## Outcome\n\n**The export keeps the gift note of each order, "
@@ -50,85 +47,6 @@ def gift_note(**fields: object) -> Issue:
         author="ann",
     )
     return replace(issue, **fields)
-
-
-@dataclass
-class FakeIssues:
-    """Origin's issues in memory, the person signed in, and every call that asked GitHub."""
-
-    repo: str = REPO
-    login: str | None = "octo-cat"
-    issues: dict[int, Issue] = field(default_factory=dict)
-    threads: dict[int, list[Comment]] = field(default_factory=dict)
-    refuse_add: str | None = None
-    calls: list[tuple[str, ...]] = field(default_factory=list)
-
-    def origin(self) -> str:
-        return self.repo
-
-    def who(self) -> str:
-        self.calls.append(("who",))
-        if self.login is None:
-            raise Refusal(
-                "gh-signed-out", "gh cannot tell who is signed in", "gh auth login"
-            )
-        return self.login
-
-    def issue(self, repo: str, number: int) -> Issue:
-        self.calls.append(("view", repo, str(number)))
-        return self.issues[number]
-
-    def comments(self, repo: str, number: int) -> tuple[Comment, ...]:
-        self.calls.append(("comments", repo, str(number)))
-        return tuple(self.threads.get(number, ()))
-
-    def assign(self, repo: str, number: int, login: str) -> str | None:
-        self.calls.append(("assign", repo, str(number), login))
-        if self.refuse_add:
-            return self.refuse_add
-        found = self.issues[number]
-        self.issues[number] = replace(found, assignees=(*found.assignees, login))
-        return None
-
-    def unassign(self, repo: str, number: int, login: str) -> None:
-        self.calls.append(("unassign", repo, str(number), login))
-        found = self.issues[number]
-        kept = tuple(name for name in found.assignees if name != login)
-        self.issues[number] = replace(found, assignees=kept)
-
-    def comment(self, repo: str, number: int, body: str) -> str:
-        self.calls.append(("comment", repo, str(number)))
-        self.threads.setdefault(number, []).append(
-            Comment(author=self.login, text=body)
-        )
-        return f"https://github.com/{repo}/issues/{number}#issuecomment-1"
-
-    def close(self, repo: str, number: int) -> None:
-        self.calls.append(("close", repo, str(number)))
-        found = self.issues[number]
-        self.issues[number] = replace(found, state="closed", state_reason="completed")
-
-    def check(self) -> Checked:
-        return Checked(repository=self.repo, signed_in=True, issues_on=True)
-
-    def read(self, ticket: str) -> TicketView:
-        found = self.issues[int(ticket.removeprefix("#"))]
-        return TicketView(
-            id=ticket,
-            title=found.title,
-            body=found.body,
-            state=found.state,
-            url=found.url,
-            assignees=found.assignees,
-        )
-
-    def step(self, ticket: str, step: TrackerStep, text: str) -> Receipt:
-        return Receipt(ticket=ticket, step=step, wrote=text)
-
-    def writes(self) -> list[tuple[str, ...]]:
-        """The calls that changed an issue."""
-        changing = {"assign", "unassign", "comment", "close"}
-        return [call for call in self.calls if call[0] in changing]
 
 
 @dataclass

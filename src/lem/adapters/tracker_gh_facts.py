@@ -10,8 +10,10 @@ from lem.records.base import Frozen
 
 
 class Comment(Frozen, frozen=True, kw_only=True):
-    """One comment of an issue: its author's login, when, its text, and its address."""
+    """One comment of an issue: its id on GitHub, which an edit names, its author's login,
+    when, its text, and its address."""
 
+    id: int | None = None
     author: str | None = None
     at: str | None = None
     text: str

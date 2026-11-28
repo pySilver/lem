@@ -1,6 +1,6 @@
 """A stand-in for `gh` on the PATH of a contract test of the GitHub tracker: the words of `gh`
 that `lem.adapters.tracker_github` speaks, answered from the issues of each repository in a JSON
-state file, in gh's own shapes.
+state file, in gh's own shapes, an edit of a comment too.
 
 Each call reads the state from the file `GH_ISSUES_STATE` names, appends its words to the file's
 `calls`, and writes the state back. It makes no network call. A test starts it as the module
@@ -76,24 +76,47 @@ def viewed(repo: str, number: str, found: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+# How many comment ids each issue has: a comment's id is its issue's number times this, and its
+# place among the issue's comments from 1.
+COMMENTS = 1000
+
+
+def edited(state: State, words: list[str]) -> str:
+    """`gh api repos/OWNER/REPO/issues/comments/ID --method PATCH --input -`: the comment's
+    new text from the JSON on standard input, and the comment as REST gives it back."""
+    _, owner, name, _, _, comment = words[1].split("/")
+    assert option(words, "--input") == "-"
+    number, place = divmod(int(comment), COMMENTS)
+    found = issue_of(state, f"{owner}/{name}", str(number))
+    if not 0 < place <= len(found["comments"]):
+        raise Refused("gh: Not Found (HTTP 404)")
+    edit = found["comments"][place - 1]
+    edit["body"] = json.loads(sys.stdin.read())["body"]
+    return json.dumps({"id": int(comment), "body": edit["body"]})
+
+
 def api(state: State, words: list[str]) -> str:
-    """`gh api user --jq .login`, and the REST list of an issue's comments in two pages."""
+    """`gh api user --jq .login`, the REST list of an issue's comments in two pages, and the
+    edit of one comment."""
     if words[1] == "user":
         if not state.get("login"):
             raise Refused(
                 "gh: To use GitHub CLI in automation, set the GH_TOKEN environment variable."
             )
         return state["login"]
+    if option(words, "--method") == "PATCH":
+        return edited(state, words)
     _, owner, name, _, number, _ = words[1].split("/")
     found = issue_of(state, f"{owner}/{name}", number)
     rows = [
         {
+            "id": int(number) * COMMENTS + place,
             "user": {"login": comment["author"]},
             "body": comment["body"],
             "created_at": "2026-11-22T10:00:00Z",
             "html_url": f"https://github.com/{owner}/{name}/issues/{number}#c",
         }
-        for comment in found["comments"]
+        for place, comment in enumerate(found["comments"], start=1)
     ]
     return json.dumps([rows[:2], rows[2:]])
 

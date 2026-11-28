@@ -9,10 +9,11 @@ VERBS = (
     ("land", "lem.cli.issue.land"),
     ("drop", "lem.cli.issue.drop"),
     ("answer", "lem.cli.issue.answer"),
+    ("tick", "lem.cli.issue.tick"),
 )
 
 COMMAND = LazyGroup(
     "issue",
-    "The GitHub tracker: check, read an issue, and a task's steps on its issue.",
+    "The GitHub tracker: check, read an issue, a task's steps on it, a feature's parts.",
     VERBS,
 )

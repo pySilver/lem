@@ -6,6 +6,9 @@ resume), stops the task's checks when they run, waits for the landing's step loc
 record again under it. When the forge merged the task's pull request into its base meanwhile, the
 drop is refused and the task lands; else the task is `dropped`, and its pull request stays open
 for the owner.
+
+The drop of a feature, which drops each of its parts that has not ended first, each through
+`dropped`, is `drop_feature.py`'s.
 """
 
 import os

@@ -19,8 +19,8 @@ if TYPE_CHECKING:
     from lem.store.places import Workspace
 
 
-def ticket_of(task: Task, step: status.IssueStep, every: tuple[Record, ...]) -> Ticket:
-    """The task's issue, once its tracker, its status and its holder are checked."""
+def issue_of(task: Task) -> Ticket:
+    """The task's ticket, once it is an issue of a repository of GitHub."""
     ticket = tickets.of(task)
     if ticket.tracker != "github" or ticket.repo is None:
         raise Refusal(
@@ -29,9 +29,20 @@ def ticket_of(task: Task, step: status.IssueStep, every: tuple[Record, ...]) -> 
             "GitHub: it is no issue lem issue can write to",
             f"the owner writes to {ticket.id} by hand",
         )
+    return ticket
+
+
+def ticket_of(task: Task, step: status.IssueStep, every: tuple[Record, ...]) -> Ticket:
+    """The task's issue, once its tracker, its status and its holder are checked."""
+    ticket = issue_of(task)
     refused = status.status_refusal(task, step, ticket.id)
     if refused is not None:
         raise refused
+    return held(task, ticket, every)
+
+
+def held(task: Task, ticket: Ticket, every: tuple[Record, ...]) -> Ticket:
+    """The task's issue, unless a task that went on from it holds the issue now."""
     holder = claim.holder(task, every)
     if holder is not None:
         raise Refusal(

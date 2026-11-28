@@ -80,9 +80,13 @@ class GhWorld:
         return self.gh()["calls"]
 
     def writes(self) -> list[list[str]]:
-        """The calls of gh that change an issue."""
+        """The calls of gh that change an issue or one of its comments."""
         changing = (["issue", "edit"], ["issue", "comment"], ["issue", "close"])
-        return [call for call in self.calls() if call[:2] in changing]
+        return [
+            call
+            for call in self.calls()
+            if call[:2] in changing or (call[0] == "api" and "PATCH" in call)
+        ]
 
     def adapter(self) -> tracker_github.TrackerGh:
         place = Place(
@@ -188,6 +192,32 @@ def test_a_comment_goes_by_standard_input_and_a_refused_add_gives_ghs_words(
     assert adapter.assign(REPO, 42, "octo-cat") == (
         "GraphQL: octo-cat cannot be assigned to this issue"
     )
+
+
+def test_a_comment_is_edited_by_its_id_with_its_json_on_standard_input(
+    tmp_path: Path,
+) -> None:
+    world = gh_world(tmp_path)
+    adapter = world.adapter()
+    adapter.comment(REPO, 42, "- [ ] one: a part\n\nlem: x parts\n")
+    mine = adapter.comments(REPO, 42)[-1]
+    assert mine.id == 42004
+    adapter.edit_comment(REPO, mine.id, "- [x] one: a part\n\nlem: x parts\n")
+    found = adapter.comments(REPO, 42)
+    assert [comment.text for comment in found] == [
+        "Same here, on order 9.",
+        "And on order 11.",
+        "A third, on the second page.",
+        "- [x] one: a part\n\nlem: x parts\n",
+    ]
+    assert world.writes()[-1] == [
+        "api",
+        f"repos/{REPO}/issues/comments/42004",
+        "--method",
+        "PATCH",
+        "--input",
+        "-",
+    ]
 
 
 def test_gh_signed_out_and_an_issue_that_is_not_there_are_refused_with_their_fix(
@@ -412,3 +442,51 @@ def test_lem_issue_answer_comments_the_answer(tmp_path: Path) -> None:
         f"\n\nlem: {SLUG} answered\n"
     )
     assert world.steps()[-1] == "answered"
+
+
+def feature_of(world: GhWorld, *statuses: str) -> None:
+    """The feature `x` of issue 42, queued after two parts in the statuses given."""
+    state = places.state_of(world.checkout)
+    ticket = Ticket(tracker="github", id="#42", repo=REPO)
+    parts = ("save-endpoint", "ios-save-button")
+    tasks.create(state, record("x", ticket=ticket, after=parts, ask="save items"))
+    asks = ("the server saves an item", "the iOS app saves the item")
+    for slug, ask, status in zip(parts, asks, statuses, strict=True):
+        tasks.create(state, record(slug, ask=ask, status=status, part_of="x"))
+
+
+def test_lem_issue_tick_posts_the_parts_comment_then_edits_it_only_when_it_differs(
+    tmp_path: Path,
+) -> None:
+    world = gh_world(tmp_path)
+    feature_of(world, "shaping", "queued")
+    ran = world.lem("issue", "tick", "x")
+    assert ran.code == 0, ran.stdout + ran.stderr
+    assert world.issue()["comments"][-1]["body"] == (
+        "- [ ] save-endpoint: the server saves an item\n"
+        "- [ ] ios-save-button: the iOS app saves the item\n"
+        "\n"
+        "lem: x parts\n"
+    )
+    assert "0 of 2 parts landed" in str(ran.envelope()["say"])
+    assert world.lem("issue", "tick", "x").code == 0
+    assert len(world.writes()) == 1
+    state = places.state_of(world.checkout)
+    before = tasks.read(state, "save-endpoint")
+    landed = msgspec.structs.replace(before.task, status="landed")
+    tasks.update(
+        state,
+        "save-endpoint",
+        lambda found: msgspec.structs.replace(found, task=landed),
+        before.revision,
+    )
+    ran = world.lem("issue", "tick", "x")
+    assert ran.code == 0, ran.stdout + ran.stderr
+    assert world.issue()["comments"][-1]["body"].startswith(
+        "- [x] save-endpoint: the server saves an item\n"
+    )
+    assert len(world.issue()["comments"]) == 4
+    assert [call[0] for call in world.writes()] == ["issue", "api"]
+    assert tasks.read(state, "x").task.ticket == Ticket(
+        tracker="github", id="#42", repo=REPO
+    )

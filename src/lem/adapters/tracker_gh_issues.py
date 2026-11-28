@@ -1,5 +1,6 @@
-"""An issue through `gh`: who is signed in, the issue, its comments (`IssueReads`), and the four
-writes Lem makes to it: an assignee added or removed, a comment, a close (`IssueWrites`)."""
+"""An issue through `gh`: who is signed in, the issue, its comments (`IssueReads`), and the
+writes Lem makes to it: an assignee added or removed, a comment posted or edited, a close
+(`IssueWrites`)."""
 
 from typing import TYPE_CHECKING
 
@@ -73,6 +74,13 @@ class IssueWrites(GhRun):
         """Post one comment, and give its address."""
         posted = (ISSUE, "comment", str(number), REPO, repo, "--body-file", "-")
         return self.said(*posted, stdin=body).strip()
+
+    def edit_comment(self, repo: str, comment: int, body: str) -> None:
+        """Give the comment `comment` of an issue of `repo` the text `body`: the REST
+        `PATCH /repos/OWNER/REPO/issues/comments/ID`, its JSON body on standard input."""
+        path = f"repos/{repo}/issues/comments/{comment}"
+        sent = msgspec.json.encode({"body": body}).decode()
+        self.said("api", path, "--method", "PATCH", "--input", "-", stdin=sent)
 
     def close(self, repo: str, number: int) -> None:
         """Close the issue as completed."""

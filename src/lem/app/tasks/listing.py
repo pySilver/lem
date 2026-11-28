@@ -52,6 +52,7 @@ class Row(Frozen, frozen=True, kw_only=True):
     branch: str | None = None
     after: tuple[str, ...] = ()
     order: str | None = None
+    part_of: str | None = None
     plan_only: bool = False
     night: Day | None = None
     mode: str
@@ -114,6 +115,7 @@ def row(record: Record, read: task_reads.Shown) -> Row:
         branch=task.branch,
         after=task.after,
         order=task.order,
+        part_of=task.part_of,
         plan_only=task.plan_only,
         night=task.night,
         mode=task.mode,
