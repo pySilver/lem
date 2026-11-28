@@ -5,6 +5,7 @@ destructive or outward step is never yours" (`skills/lem/SKILL.md`), so the line
 command that does, for the owner.
 """
 
+from lem.kernel.errors import Refusal
 from lem.records.base import Frozen
 
 
@@ -72,3 +73,17 @@ def said(dropped: FeatureDropped) -> str:
             f"deletes it: the owner deletes it with {dropped.delete}"
         )
     return "; ".join(lines)
+
+
+def stopped(
+    feature: str, part: str, before: tuple[str, ...], refused: Refusal
+) -> Refusal:
+    """The refusal of a part's drop, given again for the drop of its feature: the parts it
+    dropped before, the feature that is not dropped, and the drop run again."""
+    done = ", ".join(before) if before else "none"
+    return Refusal(
+        refused.code,
+        f"the drop of the feature {feature} stopped at its part {part}: {refused.why}. The "
+        f"parts dropped before it stay dropped ({done}), and {feature} is not dropped",
+        f"{refused.fix}; then /lem drop {feature} again, which goes on from {part}",
+    )

@@ -5,8 +5,10 @@ commits. The line for the owner names each open pull request and the one command
 the feature's branch on origin, which Lem never runs (`model/task/feature_drop.py`). The ticket's
 "drop" runs as for any dropped task, and the ticket stays open.
 
-A part's drop that is refused stops the feature's: the parts dropped stay dropped, and the drop
-run again goes on from there. A task with no parts is dropped by `drop.dropped` alone.
+A feature that the forge merged meanwhile is refused before any part is dropped. A part's drop
+that is refused stops the feature's: the parts dropped stay dropped, the refusal names them, the
+feature that is not dropped and the drop run again, which goes on from there. A task with no
+parts is dropped by `drop.dropped` alone.
 """
 
 from typing import TYPE_CHECKING
@@ -14,10 +16,11 @@ from typing import TYPE_CHECKING
 import msgspec
 
 from lem.app.tasks import release
-from lem.app.tasks.drop import DROPPED, dropped
+from lem.app.tasks.drop import DROPPED, dropped, merged_refusal
 from lem.kernel.envelope import Envelope
+from lem.kernel.errors import Refusal
 from lem.model.task import claim, feature_drop, feature_parts, table
-from lem.store import places, tasks
+from lem.store import places, task_file, tasks
 
 if TYPE_CHECKING:
     from lem.app.wiring import Ports
@@ -32,14 +35,25 @@ def pull_of(where: places.Workspace, slug: str) -> str | None:
 
 
 def parts_named(where: places.Workspace, task: Task) -> tuple[Task, ...]:
-    """The parts of the task, a feature. A task whose `after` is empty has none, and no record
-    is read for it: a part goes into its feature's `after` before its record is published, and
-    a resumed part goes on from a part that did."""
+    """The parts of the task, a feature: the tasks its `after` names whose `part_of` is it.
+    Only those records are read, so a damaged record of another task stops no drop, and one
+    that `after` names refuses it. A part goes into its feature's `after` before its record is
+    published, a resumed part too (`feature.rejoined`)."""
     if not task.after:
         return ()
-    return feature_parts.parts_of(
-        task, (record.task for record in tasks.every(where.state))
-    )
+    named = task_file.named(where.state, task.after)
+    return feature_parts.parts_of(task, (record.task for record in named))
+
+
+def part_dropped(
+    where: places.Workspace,
+    part: str,
+    reason: str,
+    given: Ports | None,
+) -> feature_drop.PartDropped:
+    """Drop one part, under its own step lock."""
+    moved = dropped(where, part, reason, given)
+    return feature_drop.PartDropped(slug=part, was=moved.was, pull=pull_of(where, part))
 
 
 def parts_dropped(
@@ -50,17 +64,19 @@ def parts_dropped(
     given: Ports | None,
 ) -> tuple[feature_drop.PartDropped, ...]:
     """Drop each part in `found` that has not ended, in their order, each under its own step
-    lock, with the owner's reason `line`."""
+    lock, with the owner's reason `line`. A part's refusal stops the rest, and is given again
+    with the feature, the parts dropped before it, and the way on."""
     reason = feature_drop.part_line(feature, line)
-    return tuple(
-        feature_drop.PartDropped(
-            slug=part.slug,
-            was=dropped(where, part.slug, reason, given).was,
-            pull=pull_of(where, part.slug),
-        )
-        for part in found
-        if part.status not in claim.ENDED
-    )
+    done: list[feature_drop.PartDropped] = []
+    for part in found:
+        if part.status in claim.ENDED:
+            continue
+        try:
+            done.append(part_dropped(where, part.slug, reason, given))
+        except Refusal as refused:
+            slugs = tuple(one.slug for one in done)
+            raise feature_drop.stopped(feature, part.slug, slugs, refused) from refused
+    return tuple(done)
 
 
 def enveloped(
@@ -97,5 +113,6 @@ def feature_dropped(
     found = parts_named(where, before.task)
     if not found:
         return dropped(where, slug, line, given)
+    merged_refusal(given, where, before)
     parts = parts_dropped(where, slug, found, line, given)
     return enveloped(where, before.task, dropped(where, slug, line, given), parts)
