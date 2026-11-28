@@ -27,6 +27,13 @@ def parts_of(feature: Task, every: Iterable[Task]) -> tuple[Task, ...]:
     )
 
 
+def named_parts(feature: Task, named: Iterable[Task]) -> tuple[str, ...]:
+    """The parts of `feature` among the tasks its `after` names, in the order of `after`:
+    what tells a feature from a task with no parts, with no record read but those it names."""
+    parts = {task.slug for task in named if task.part_of == feature.slug}
+    return tuple(slug for slug in dict.fromkeys(feature.after) if slug in parts)
+
+
 def went_on(task: Task, every: Iterable[Task]) -> frozenset[str]:
     """The tasks of `task.after` that a task also in its `after` went on from: a part of a
     feature resumed as another part, which the feature waits for in its place."""

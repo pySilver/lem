@@ -11,7 +11,7 @@ from msgspec.structs import replace
 
 from lem.app import task_reads
 from lem.app.tasks import first_line, shown_answer
-from lem.model.task import claim, ticket_owner, tickets
+from lem.model.task import claim, feature_parts, ticket_owner, tickets
 from lem.records import task, work
 from lem.records.base import Day, Frozen, Moment
 from lem.records.holds import Blocked, BreakerHold, OwnerHold, Parked, ReleaseHold
@@ -53,6 +53,7 @@ class Row(Frozen, frozen=True, kw_only=True):
     after: tuple[str, ...] = ()
     order: str | None = None
     part_of: str | None = None
+    parts: tuple[str, ...] = ()
     plan_only: bool = False
     night: Day | None = None
     mode: str
@@ -116,6 +117,7 @@ def row(record: Record, read: task_reads.Shown) -> Row:
         after=task.after,
         order=task.order,
         part_of=task.part_of,
+        parts=feature_parts.named_parts(task, (one.task for one in read.records)),
         plan_only=task.plan_only,
         night=task.night,
         mode=task.mode,

@@ -4,7 +4,8 @@ it asks for (the fixed lines `type:`, `then:`, `after:` and `the owner's order:`
 `--after` queues the task behind others, a task each time it is given; `--order` keeps the
 owner's words, and with no task named the order waits for his answer (`owner: order`). A read
 again with no `--after` lifts a queue by a need that went; a queue by his order is lifted by
-his word alone (`lem task start`).
+his word alone (`lem task start`). A feature's parts stay in its `after`, and it waits for each
+part that has not ended (`read_parts.py`).
 """
 
 from types import MappingProxyType
@@ -13,12 +14,13 @@ from typing import TYPE_CHECKING, Literal
 from msgspec.structs import replace
 
 from lem.kernel.errors import Refusal
-from lem.model.task import holds, table
-from lem.model.task.behind import after_dropped, word
+from lem.model.task import feature_parts, holds, table
+from lem.model.task.behind import STARTED, after_dropped, word
+from lem.model.task.read_parts import Parts
 from lem.records.base import Frozen
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Iterable, Mapping
 
     from lem.records.base import Moment
     from lem.records.record import Record
@@ -46,8 +48,25 @@ class Queue(Frozen, frozen=True, kw_only=True):
     wait: Wait | None = None
 
 
+def parts_of(task: Task, named: Iterable[Task]) -> Parts:
+    """The parts of `task` among the tasks its `after` names (`named`): the parts it keeps,
+    and each one that has not landed nor been answered, but one that went on in another part
+    (`feature_parts.went_on`)."""
+    tasks = tuple(named)
+    found = feature_parts.named_parts(task, tasks)
+    gone = feature_parts.went_on(task, tasks)
+    statuses = {one.slug: one.status for one in tasks}
+    waits = tuple(
+        slug for slug in found if slug not in gone and statuses.get(slug) not in STARTED
+    )
+    return Parts(slugs=found, waits=waits)
+
+
 def refusal(
-    record: Record, queue: Queue, others: Mapping[str, Status]
+    record: Record,
+    queue: Queue,
+    others: Mapping[str, Status],
+    parts: Parts,
 ) -> Refusal | None:
     """Why the read may not be written: the task is past its shape, its queue names itself
     or no task, or it drops the queue of his order."""
@@ -70,14 +89,20 @@ def refusal(
                 "here",
                 "lem task list names the tasks",
             )
-    return removal_refusal(task, queue, others)
+    return removal_refusal(task, queue, others, parts.slugs)
 
 
 def removal_refusal(
-    task: Task, queue: Queue, others: Mapping[str, Status]
+    task: Task,
+    queue: Queue,
+    others: Mapping[str, Status],
+    kept: tuple[str, ...] = (),
 ) -> Refusal | None:
-    """Only the owner's word removes an ordered dependency or one that was dropped."""
-    removed = tuple(one for one in task.after if one not in queue.after)
+    """Only the owner's word removes an ordered dependency or one that was dropped; a
+    feature's parts (`kept`) the read never removes."""
+    removed = tuple(
+        one for one in task.after if one not in queue.after and one not in kept
+    )
     if removed and task.order is not None:
         return Refusal(
             "order",
@@ -98,14 +123,15 @@ def moved_to(after: tuple[str, ...]) -> tuple[Status, str]:
     return "queued", f"queued after {names}"
 
 
-def queued(record: Record, queue: Queue, now: Moment) -> Record:
-    """The record with the queue the read asks for: queued behind `after`, or shaping."""
+def queued(record: Record, queue: Queue, now: Moment, parts: Parts) -> Record:
+    """The record with the queue the read asks for, its parts kept: queued behind `after`
+    and each part not ended, or shaping."""
     task = record.task
-    status, line = moved_to(queue.after)
-    renewed = status == "queued" and task.after != queue.after
+    status, line = moved_to(parts.waited(queue.after))
+    renewed = status == "queued" and task.after != parts.after(queue.after)
     task = replace(
         task,
-        after=queue.after,
+        after=parts.after(queue.after),
         order=task.order if task.after and task.order is not None else queue.order,
     )
     if renewed:
@@ -116,10 +142,18 @@ def queued(record: Record, queue: Queue, now: Moment) -> Record:
     return record
 
 
-def read(record: Record, *, shape: Shape, queue: Queue, now: Moment) -> Record:
-    """The record with its shape, its queue, and what waits for the owner now."""
+def read(
+    record: Record,
+    *,
+    shape: Shape,
+    queue: Queue,
+    now: Moment,
+    parts: Parts,
+) -> Record:
+    """The record with its shape, its queue, its parts kept, and what waits for the owner
+    now."""
     shaped = replace(record, task=replace(record.task, shape=shape))
-    record = queued(shaped, queue, now)
+    record = queued(shaped, queue, now, parts)
     if not queue.after and queue.order is not None:
         return holds.waiting(record, on="order", line=ORDER_WAIT, now=now)
     wait = queue.wait
