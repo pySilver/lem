@@ -9,6 +9,7 @@ starts a process or reads a clock.
 
 from typing import Literal
 
+from lem.model.landing.feature_seen import Feature
 from lem.model.landing.queue_evidence import Event
 from lem.records.base import Frozen, Moment, Sha
 
@@ -70,7 +71,8 @@ class World(Frozen, frozen=True, kw_only=True):
     rebase in progress), origin's base, its tree and whether the tip holds it, origin's task
     branch and whether the tip holds it, the local branch and whether origin's base holds it,
     the pull request on record, the open ones on the branch while none is on record
-    (`candidates`), the settings and the moment."""
+    (`candidates`), the settings and the moment; and for a feature, its parts and the open
+    pull requests into its branch (None for a task that no part names)."""
 
     rules: Rules
     branch: str
@@ -91,6 +93,7 @@ class World(Frozen, frozen=True, kw_only=True):
     item_chain: tuple[Sha, ...] = ()
     own_item_removed_from: Sha | None = None
     dequeued: str | None = None
+    feature: Feature | None = None
 
     def items_from(self, tip: Sha) -> bool:
         """Whether the item-only history joins the checked tip to this tip."""

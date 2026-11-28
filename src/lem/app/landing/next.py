@@ -14,7 +14,7 @@ from lem.app.landing import following, frame, step_release
 from lem.app.landing.world import gather
 from lem.kernel import clock
 from lem.kernel.envelope import Envelope
-from lem.model.landing import phases
+from lem.model.landing import feature, phases
 from lem.store import places
 
 if TYPE_CHECKING:
@@ -32,7 +32,7 @@ def due_with(workspace: places.Workspace, record: Record) -> tuple[Due, bool]:
         return found, True
     ports = frame.bound(workspace)
     world = gather(ports, workspace, record, clock.now(), fetch=True)
-    return phases.due(record, world), world.rules.history == "squash"
+    return phases.due(record, world), feature.squashes(world)
 
 
 def due_of(workspace: places.Workspace, record: Record) -> Due:

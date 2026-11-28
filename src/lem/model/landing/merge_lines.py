@@ -54,12 +54,19 @@ def noted_body(body: str, line: str, *, replaces: str | None = None) -> str | No
     return f"{kept}\n\n{line}\n" if kept else f"{line}\n"
 
 
-def squash_body(slug: str, moved: str | None, decided: str | None = None) -> str:
-    """The body of the one commit a squash makes: the task's decisions, when it has some; the
-    line of a merge on a moved base, when there is one; and last the line `Lem task: SLUG` by
-    which the board names the task."""
-    parts = (decided, moved, f"Lem task: {slug}")
-    return "\n\n".join(part for part in parts if part)
+def squash_body(
+    slug: str,
+    moved: str | None,
+    decided: str | None = None,
+    *,
+    parts: tuple[str, ...] = (),
+) -> str:
+    """The body of the one commit a squash makes: a feature's parts, each a line, when it has
+    some; the task's decisions, when it has some; the line of a merge on a moved base, when
+    there is one; and last the line `Lem task: SLUG` by which the board names the task."""
+    listed = "\n".join(("Parts:", *parts)) if parts else None
+    found = (listed, decided, moved, f"Lem task: {slug}")
+    return "\n\n".join(part for part in found if part)
 
 
 def after_push(branch: str, shas: Pair, bases: Pair, *, same: bool) -> str:

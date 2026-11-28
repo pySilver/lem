@@ -21,8 +21,9 @@ if TYPE_CHECKING:
     from lem.records.record import Record
 
 STEP = "base"
-# What `base` does: nothing but its record, or a rebase onto origin's base.
-type Move = Literal["onto", "rebase"]
+# What `base` does: nothing but its record, a rebase onto origin's base, or for a feature a
+# merge of origin's base into the branch.
+type Move = Literal["onto", "rebase", "merge"]
 
 
 class Facts(Frozen, frozen=True, kw_only=True):
@@ -84,8 +85,8 @@ def holds(record: Record, world: World) -> Held | Due:
 
 
 def decide(record: Record, world: World, facts: Facts, where: str) -> Refusal | Move:
-    """Whether the branch needs a rebase, or why it may not have one now; `where` is the
-    worktree, which a fix names."""
+    """Whether the branch needs a rebase, or for a feature a merge, or why it may not have
+    one now; `where` is the worktree, which a fix names."""
     refused = base_said.blocked(record, world, facts, where)
     if refused is not None:
         return refused
@@ -93,6 +94,8 @@ def decide(record: Record, world: World, facts: Facts, where: str) -> Refusal | 
         return base_empty.empty(record, world, facts, where)
     if world.base_in_tip:
         return "onto"
+    if world.feature is not None:
+        return "merge"
     again = base_said.again(record, world, where) if facts.dropped else None
     return again or "rebase"
 

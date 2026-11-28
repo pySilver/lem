@@ -4,7 +4,8 @@ ran.
 With no file the step publishes the brief (`app/landing/review_brief.py`), starts the review's
 span, and names next the command that takes the agent's record. With `--record FILE` it reads
 the agent's JSON, in the form `prompts/review.md` gives (`model.landing.review_said.Said`), and
-records it for the attempt and the tip now, or refuses it with what is wrong.
+records it for the attempt and the tip now, or refuses it with what is wrong. A feature's review
+follows `prompts/feature-review.md`, which its brief names.
 """
 
 from functools import partial
@@ -24,6 +25,9 @@ from lem.kernel.errors import Refusal
 from lem.model.landing import review, review_due
 from lem.records.base import Frozen
 from lem.settings.load import team_of
+
+# The review's instruction, which a feature's brief names in its own place (`review_feature.py`).
+PROMPT = "prompts/review.md"
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -91,13 +95,15 @@ def answering(slug: str, envelope: Envelope) -> Envelope:
     """The envelope of a brief, whose next is the command that takes the agent's record."""
     found = msgspec.json.decode(envelope.outcome or b"null", type=Briefed)
     attempt = found.attempt
+    feature = found.brief.feature
+    prompt = feature.prompt if feature else PROMPT
     following = Next(
         act="spawn",
         job="review",
         command=f"lem land read {slug} --record FILE",
         paths=(found.path,),
         why=(
-            f"a review agent reads the change as prompts/review.md says, with the brief "
+            f"a review agent reads the change as {prompt} says, with the brief "
             f"{found.path}, and writes FILE, {found.record} in the task's folder: the record "
             f"of attempt {attempt}, which this command takes"
         ),

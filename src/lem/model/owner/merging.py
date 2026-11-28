@@ -130,4 +130,7 @@ def calling(look: Look) -> MergeRead | None:
 
 def owner_reason(look: Look) -> str | None:
     """Why the landing rules assign the merge to the owner."""
-    return merge.authority(look.record, verdict=False, land=look.basis.land)
+    basis = look.basis
+    return merge.authority(
+        look.record, verdict=False, land=basis.land, is_feature=basis.feature
+    )

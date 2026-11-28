@@ -14,7 +14,7 @@ import threading
 from functools import partial
 from typing import TYPE_CHECKING
 
-from lem.app.landing import merge
+from lem.app.landing import merge, parts
 from lem.board import merge_look
 from lem.board.duties import merge_count, merge_said
 from lem.kernel import clock, errors
@@ -45,11 +45,13 @@ def started(duty: Duty, record: records.Record, by: Merger, key: Key) -> bool:
 
 
 def subject_of(duty: Duty, record: records.Record) -> str | None:
-    """The one commit's subject where the history is squashed: the pull request's title."""
+    """The one commit's subject where the history is squashed, and always for a feature: the
+    pull request's title."""
     landing = record.landing
     pull = landing.pull if landing else None
     history = merge_look.branch_of(duty.here).history
-    return pull.title if history == "squash" and pull else None
+    squash = history == "squash" or parts.named(duty.state, record.task.slug)
+    return pull.title if squash and pull else None
 
 
 def ran(duty: Duty, slug: str, asked: merge_asked.Asked, key: Key) -> None:

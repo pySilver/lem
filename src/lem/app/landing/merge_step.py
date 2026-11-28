@@ -13,7 +13,7 @@ import msgspec
 
 from lem.app.landing import following, say, step
 from lem.kernel import clock, envelope
-from lem.model.landing import phases
+from lem.model.landing import feature, phases
 from lem.store import places, steps, tasks
 
 if TYPE_CHECKING:
@@ -76,7 +76,7 @@ def then_of(
 ) -> envelope.Next:
     """What comes next: the act's own line, else the due step's command."""
     said = None if told is None else told(outcome)
-    squash = context.world.rules.history == "squash"
+    squash = feature.squashes(context.world)
     slug = context.record.task.slug
     return said or following.following(slug, due, squash=squash)
 

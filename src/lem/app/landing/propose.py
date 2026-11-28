@@ -5,7 +5,8 @@ The gates come first, each a refusal before anything is written or pushed, then 
 of each finding called under the bar, which may stop the step once; then the text is
 published at a path of its own, the push carries a lease on Lem's last push and is recorded
 before the forge's call, and the forge's pull request is the task's own, edited, or a new one.
-A run cut off anywhere finds what it did in git and on the forge.
+A run cut off anywhere finds what it did in git and on the forge. A feature's text lists its
+parts (`model/landing/feature_said.py`).
 """
 
 from dataclasses import replace as with_record
@@ -24,7 +25,7 @@ from lem.app.landing import (
     step,
 )
 from lem.kernel.errors import Refusal
-from lem.model.landing import propose
+from lem.model.landing import feature_said, propose
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -38,7 +39,8 @@ def written(
 ) -> tuple[propose.Proposal, str, Context]:
     """The proposal and the pull request's text, or the refusal of the first gate the
     request does not pass, before anything is written or pushed."""
-    facts = propose_seen.gathered(context, notes)
+    found = propose_seen.gathered(context, notes)
+    facts = replace(found, parts=feature_said.lines(context.world))
     proposal = propose.decide(context.record, context.world, facts, title)
     if isinstance(proposal, Refusal):
         raise proposal

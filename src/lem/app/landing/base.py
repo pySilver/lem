@@ -1,7 +1,8 @@
 """`lem land base`: the task's branch onto origin's base, by the plain rebase when the tip does
 not hold it. A rebase that stops on files or that git refuses is undone, and nothing of it is
 kept but the files a builder resolves; what the rebase kept of the change is judged from git's
-merges (`model/landing/base.py`)."""
+merges (`model/landing/base.py`). A feature takes in origin's base by a merge commit, as its
+sync does (`base_merge.py`)."""
 
 import dataclasses
 from functools import partial
@@ -12,6 +13,7 @@ import msgspec
 from lem.app.landing import (
     base_after,
     base_facts,
+    base_merge,
     base_polish,
     base_stop,
     frame,
@@ -71,6 +73,8 @@ def moved(context: frame.Context) -> tuple[frame.Context, base.After]:
         raise move
     if move == "rebase":
         return rebased(context)
+    if move == "merge":
+        return context, base_merge.merged_in(context)
     return context, stayed(context)
 
 

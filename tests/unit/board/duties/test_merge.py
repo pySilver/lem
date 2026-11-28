@@ -33,7 +33,7 @@ from lem.records.landing.start import Started
 from lem.store import steps, tasks
 from unit.board.duties.world import duty_of, landing_of, looked, opened
 from unit.owner.looked import BASE, TIP, proposed, read, refused
-from unit.sessions.world import here_of
+from unit.sessions.world import here_of, made
 
 if TYPE_CHECKING:
     from lem.app.landing.merge_called import BeforeCall
@@ -112,6 +112,46 @@ def test_the_merge_agents_merge_of_the_proposed_tip_is_the_servers(
         ("merger", "server", TIP, False)
     ]
     assert asked[0].subject == "Gift note"
+
+
+KEEP = '[branch]\nbase = "main"\nhistory = "keep"\n'
+
+
+def test_the_server_leaves_a_features_merge_to_the_owner(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    here = here_of(tmp_path)
+    opened(here, "the-feature", proposed=proposed(), reads=(read("merge"),))
+    opened(here, "a-task", proposed=proposed(), reads=(read("merge"),))
+    made(here, "a-part", part_of="the-feature", status="landed")
+    asked = asking(monkeypatch)
+    kept = Kept()
+    duty.tick(duty_of(here, HOUR, kept))
+    ended(kept)
+    assert [(one.by, one.tip) for one in asked] == [("merger", TIP)]
+    assert sorted(kept.merging) == ["a-task"]
+
+
+@pytest.mark.parametrize(("feature", "subject"), [(False, None), (True, "Gift note")])
+def test_where_the_history_keeps_commits_a_features_standing_merge_is_a_squash(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    feature: bool,
+    subject: str | None,
+) -> None:
+    here = here_of(tmp_path)
+    (tmp_path / ".lem" / "settings.toml").write_text(KEEP)
+    standing_task(here, "stands")
+    if feature:
+        made(here, "a-part", part_of="stands", status="landed")
+    asked = asking(monkeypatch)
+    kept = Kept()
+    duty.tick(duty_of(here, HOUR, kept))
+    ended(kept)
+    assert [(one.by, one.standing, one.subject) for one in asked] == [
+        ("owner", True, subject)
+    ]
 
 
 def test_the_owners_merge_that_stands_is_carried_out_by_the_server(

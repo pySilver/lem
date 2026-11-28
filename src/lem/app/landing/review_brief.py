@@ -2,14 +2,15 @@
 the facts of the change, the reviews before it, and its inputs, with nothing of the builder's
 reasoning (`land.cmd_read` on `main`, its output with no record). The brief is published as
 `reviews/read-N-DIGEST.json` in the task's folder, N being the attempt, and the agent reads it as
-`prompts/review.md` says.
+`prompts/review.md` says; a feature's brief holds what its review reads beside it, which
+`prompts/feature-review.md` says (`review_feature.py`).
 """
 
 from typing import TYPE_CHECKING
 
 import msgspec
 
-from lem.app.landing import review_facts
+from lem.app.landing import feature_brief, review_facts, review_feature
 from lem.kernel import files
 from lem.model.landing import review_due
 from lem.records.base import Frozen
@@ -59,7 +60,7 @@ class Brief(Frozen, frozen=True, kw_only=True):
     """The review that is due: its attempt and round, the tip it reads, its floor and why, the
     kinds, each reason the request is careful, the track, the plan's tasks, the change's lines
     and whether it is read in parts, a conflict's resolution, the reviews before it, the
-    inputs, and where the record goes."""
+    inputs, where the record goes, and for a feature what its review reads beside them."""
 
     task: str
     attempt: int
@@ -77,6 +78,7 @@ class Brief(Frozen, frozen=True, kw_only=True):
     reads: tuple[Reviewed, ...] = ()
     inputs: Inputs
     record: str
+    feature: feature_brief.FeatureRead | None = None
 
 
 def there(path: Path) -> str | None:
@@ -135,6 +137,7 @@ def made(
         reads=landing.reviews,
         inputs=inputs(context, found, topics),
         record=RECORD.format(attempt),
+        feature=review_feature.read_of(context),
     )
 
 

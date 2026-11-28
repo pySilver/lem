@@ -7,14 +7,15 @@ started from, and what the pass may not change. `--done`, after the builder, che
 committed: a worktree with changes nobody committed, a branch that no longer holds the start, a
 change of a criterion's test or of the plan, and tests of the criteria that no longer pass on
 the branch and fail on the base are each refused. Then it keeps the pass, with its run of the
-criteria's tests, which `checks` takes while that run's five inputs stay the same.
+criteria's tests, which `checks` takes while that run's five inputs stay the same. A feature
+takes no pass: each of its parts had its own.
 """
 
 from functools import partial
 from typing import TYPE_CHECKING
 
 from lem.app.landing import changes, checks_record, polish_brief, polish_done, step
-from lem.model.landing import polish
+from lem.model.landing import feature, polish
 from lem.records.landing.start import Polished
 
 if TYPE_CHECKING:
@@ -34,7 +35,7 @@ def begun(record: Record, *, polished: Polished) -> Record:
 def started(context: frame.Context) -> polish_brief.Brief:
     """Start the pass at the tip, or keep the start of one that is not done."""
     record, world = context.record, context.world
-    refused = polish.small(record)
+    refused = polish.small(record) or feature.polish_refusal(record, world)
     if refused is not None:
         raise refused
     kept = record.landing.polished if record.landing else None

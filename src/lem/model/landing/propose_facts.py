@@ -37,8 +37,9 @@ class Settings(Frozen, frozen=True, kw_only=True):
 class Facts(Frozen, frozen=True, kw_only=True):
     """The facts of one proposal: the paths the branch changes against its merge base with
     the base, Lem's settings as it changes them, the items it adds to the backlog, which of
-    the paths `propose` asked about the tip holds, the head of each of them that is an item, and
-    the notes. The items under the bar carry their text and any reason."""
+    the paths `propose` asked about the tip holds, the head of each of them that is an item, the
+    notes, and a feature's parts, each a line. The items under the bar carry their text and any
+    reason."""
 
     changed: tuple[str, ...] = ()
     settings: Settings = Settings()
@@ -48,6 +49,7 @@ class Facts(Frozen, frozen=True, kw_only=True):
     heads: tuple[Filing, ...] = ()
     notes: str = ""
     bar_read: Checked | None = None
+    parts: tuple[str, ...] = ()
 
 
 def small(record: Record) -> bool:

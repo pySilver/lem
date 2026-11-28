@@ -1,7 +1,8 @@
 """The pull request's text, in the order the owner reads it (`main:land.pr_text`,
-`small_text`): green or each reason it is not, then the request in the owner's words, the
-criteria with their tests, each check with what it returned, each decision of the record with
-who took it and why, and the agent's notes with what was seen outside the change.
+`small_text`): green or each reason it is not, then the request in the owner's words, a
+feature's parts with their pull requests and reviews, the criteria with their tests, each check
+with what it returned, each decision of the record with who took it and why, and the agent's
+notes with what was seen outside the change.
 
 The text is a function of the record, the facts of the branch and the notes, so a proposal cut
 off and made again writes the same bytes. Each body is published at a path of its own,
@@ -13,7 +14,7 @@ from typing import TYPE_CHECKING
 import jinja2
 
 from lem.app.landing import pr_criteria, pr_fast, pr_head, pr_standard
-from lem.app.landing.pr_inputs import Text
+from lem.app.landing.pr_inputs import Text, block
 from lem.kernel import files
 from lem.model.landing.propose_facts import small
 
@@ -25,6 +26,7 @@ if TYPE_CHECKING:
     from lem.records.record import Record
 
 SHORT = 12
+PARTS = "## Parts"
 TEMPLATES = jinja2.Environment(
     loader=jinja2.PackageLoader("lem.app.landing", "templates"),
     autoescape=jinja2.select_autoescape(default=False, default_for_string=False),
@@ -37,7 +39,8 @@ def body(record: Record, proposal: Proposal, facts: Facts) -> str:
     """The whole text of the pull request."""
     track = pr_fast.blocks if small(record) else pr_standard.blocks
     head = (*pr_head.blocks(record, proposal), *pr_criteria.request(record))
-    blocks = (*head, *track(record, proposal, facts))
+    parts = block(PARTS, facts.parts)
+    blocks = (*head, *parts, *track(record, proposal, facts))
     return TEMPLATES.get_template("pr.md.j2").render(text=Text(blocks=blocks))
 
 

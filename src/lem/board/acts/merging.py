@@ -12,7 +12,7 @@ through a new landing after a conflict too, while the reasons he saw are the sam
 
 from typing import TYPE_CHECKING
 
-from lem.app.landing import merge
+from lem.app.landing import merge, parts
 from lem.board.acts import merge_duty, merge_status
 from lem.board.acts.asked import line_of
 from lem.board.acts.notes import NOTES, State
@@ -76,11 +76,13 @@ def outcome(record: Record, base: str) -> Said:
 
 def asked_for(asked: Asked) -> Merging:
     """The merge as the landing takes it: the owner's, through the board, for the tip he saw,
-    with the pull request's title as the one commit's subject of a squash."""
+    with the pull request's title as the one commit's subject of a squash: where
+    `branch.history` squashes, and always for a feature."""
     record = tasks.read(asked.state, asked.slug)
     branch = settings_of(asked.checkout).settings.branch
     pull = record.landing.pull if record.landing else None
-    subject = pull.title if pull is not None and branch.history == "squash" else None
+    squash = branch.history == "squash" or parts.named(asked.state, asked.slug)
+    subject = pull.title if pull is not None and squash else None
     return Merging(by="owner", via="board", tip=asked.given.tip, subject=subject)
 
 

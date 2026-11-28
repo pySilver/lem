@@ -4,12 +4,19 @@
 `branch.history = "squash"` lands the branch as one commit with the subject of the builder's
 report, and a body that lists the task's decisions, then the line of a merge on a base a safe
 read covered, and last names the task;
-`"keep"` lands the branch's own commits (a rebase on the forge), which take no subject.
+`"keep"` lands the branch's own commits (a rebase on the forge), which take no subject. A feature
+is always one squashed commit, whose body lists its parts too.
 """
 
 from typing import TYPE_CHECKING, Literal
 
-from lem.model.landing import merge_decided, merge_lines, mergeread
+from lem.model.landing import (
+    feature,
+    feature_said,
+    merge_decided,
+    merge_lines,
+    mergeread,
+)
 from lem.records.base import Frozen, Sha
 from lem.records.landing.merge import MergeIntent
 from lem.records.landing.record import Landing
@@ -50,20 +57,21 @@ def moved_line(landing: Landing, world: World) -> str | None:
 def merging(record: Record, world: World, asked: Asked, tip: Sha) -> Merging:
     """The call `asked` for of the proposed `tip`: its intent, and a squash with the
     report's subject and a body that lists the task's decisions and names the task, with the
-    line of a merge on a base a safe read covered between; or a rebase that keeps the
-    branch's commits."""
+    line of a merge on a base a safe read covered between, and a feature's parts; or a rebase
+    that keeps the branch's commits."""
     # The merge requires an open pull request before it builds the call.
     event = world.pull.queue_event if world.pull else None  # pragma: no mutate
     before = event.id if event else ""
     intent = MergeIntent(
         tip=tip, by=asked.by, via=asked.via, at=world.now, queue_before=before
     )
-    if world.rules.history == "keep":
+    if not feature.squashes(world):
         return Merging(intent=intent, method="rebase", subject="", body="")
     body = merge_lines.squash_body(
         record.task.slug,
         moved_line(record.landing or Landing(), world),
         merge_decided.block(record.task.decisions),
+        parts=feature_said.lines(world),
     )
     # The request must have a subject before it can build a squash call.
     subject = asked.subject or ""  # pragma: no mutate

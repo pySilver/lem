@@ -257,6 +257,22 @@ def test_his_approval_merges_as_his_word_through_the_board_and_says_what_came_of
     )
 
 
+@pytest.mark.parametrize(("feature", "subject"), [(False, None), (True, TITLE)])
+def test_where_the_history_keeps_commits_only_a_features_squash_gets_its_title(
+    board: Board, monkeypatch: pytest.MonkeyPatch, *, feature: bool, subject: str | None
+) -> None:
+    keep = '[branch]\nbase = "main"\nhistory = "keep"\n'
+    (board.checkout / ".lem" / "settings.toml").write_text(keep)
+    opened_pull(board)
+    if feature:
+        made(board, "a-part", part_of=SLUG, status="landed")
+    calls: list[Asked] = []
+    monkeypatch.setattr(merging.merge, "run", accepting(calls))
+    settled(board, token_of(board, {"tip": TIP, "confirm": "yes"}))
+    (asked,) = calls
+    assert asked.subject == subject
+
+
 def test_a_second_press_while_the_merge_runs_gets_that_merges_note(
     board: Board, monkeypatch: pytest.MonkeyPatch
 ) -> None:

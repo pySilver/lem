@@ -7,13 +7,15 @@ is reconciled before any new call (`reconcile.py`), and the evidence is read aga
 newest review made the careful call on, where the settings let it, on its read's `merge` for the
 tip and base. The owner's word merges the tip he saw (`merge_asked.py`). On a moved base, it
 stands while the rebased change takes its checks. `branch.history` squashes the branch into one
-commit, or lands its own commits (a rebase on the forge).
+commit, or lands its own commits (a rebase on the forge). A feature is the owner's to merge, as
+one squashed commit, and not while an open pull request goes into its branch (`feature.py`).
 """
 
 from typing import TYPE_CHECKING, Literal
 
 from lem.kernel.errors import Refusal
 from lem.model.landing import (
+    feature,
     merge_asked,
     merge_call,
     merge_evidence,
@@ -39,9 +41,9 @@ OWNER: Merger = "owner"
 
 
 def who(world: World, reasons: tuple[str, ...]) -> Merger:
-    """Who merges a proposal: the merge agent for a green request the settings let it merge,
-    else the owner."""
-    if reasons or world.rules.land == OWNER:
+    """Who merges a proposal: the merge agent for a green request the settings let it merge
+    that is no feature, else the owner."""
+    if reasons or world.rules.land == OWNER or world.feature is not None:
         return OWNER
     return "merger"
 
@@ -62,17 +64,20 @@ def authority(
     *,
     verdict: bool = True,
     land: Literal["agent", "owner"] | None = None,
+    is_feature: bool = False,
 ) -> str | None:
     """Why the merge agent may not merge, or None when it may (`main:land.merger_refusal`):
-    the reasons it is not green read again now, careful, no careful call, the settings, and,
-    with `verdict`, the read that covers origin's base now, one read for the tip and that
-    base. Without `verdict` it is what the merge agent's brief says before it reads. The
-    owner list passes the current landing setting when it has it."""
+    a feature, the reasons it is not green read again now, careful, no careful call, the
+    settings, and, with `verdict`, the read that covers origin's base now, one read for the
+    tip and that base. Without `verdict` it is what the merge agent's brief says before it
+    reads. The owner list passes the current landing setting when it has it, and whether a
+    part names the task (`is_feature`), which the world says when there is one."""
     landing = record.landing or Landing()
     last = newest(landing)
     read = mergeread.latest(landing, world.base_tree if world else None)
     current_land = world.rules.land if world else land
     found = (
+        (is_feature or bool(world and world.feature is not None), feature.OWNER),
         (careful(record), CAREFUL),
         (
             landing.proposed is None or bool(merge_standing.reasons_now(record, world)),
@@ -146,7 +151,9 @@ def decide(
     proposed = merge_evidence.new_call_refusal(record) or opened(record)
     if isinstance(proposed, Refusal):
         return proposed
-    asked_now = merge_asked.refusal(record, world, asked)
+    asked_now = merge_asked.refusal(record, world, asked) or feature.targeting(
+        record, world
+    )
     landing = record.landing or Landing()
     approved = asked.by == OWNER or landing.standing is not None
     refused = asked_now or (

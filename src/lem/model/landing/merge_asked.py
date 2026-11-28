@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 
 from lem.kernel.errors import Refusal
 from lem.model.criteria import contract
-from lem.model.landing import merge_standing
+from lem.model.landing import feature, merge_standing
 from lem.model.landing.world import Merger
 from lem.records.base import Frozen
 from lem.records.landing.merge import Via
@@ -103,10 +103,13 @@ def github_refusal(record: Record, asked: Asked) -> Refusal | None:
 
 
 def message_refusal(world: World, asked: Asked) -> Refusal | None:
-    """Why the subject does not fit `branch.history`: a squash needs it, a merge that keeps
-    the branch's commits takes none."""
-    squash = world.rules.history == "squash"
-    if squash and not asked.subject:
+    """Why the subject does not fit the merge: a squash needs it, a merge that keeps the
+    branch's commits takes none. A feature is always a squash."""
+    squash = feature.squashes(world)
+    if squash and world.rules.history != "squash" and not asked.subject:
+        why = "the request is a feature: its branch lands as one commit, with a subject"
+        fix = "pass --message with the commit subject of the feature"
+    elif squash and not asked.subject:
         why = (
             'branch.history is "squash": the one commit takes the subject of the report'
         )

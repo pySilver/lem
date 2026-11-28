@@ -12,6 +12,7 @@ import msgspec
 
 from lem.kernel import files
 from lem.kernel.errors import Refusal
+from lem.model.landing.feature import NO_POLISH
 from lem.model.landing.world import Due, Held, Rules, World
 from lem.records.landing.record import Landing
 
@@ -38,10 +39,13 @@ def inputs(rules: Rules, plan: str | None = None) -> str:
 def polished(record: Record, world: World) -> Held | Due:
     """The polish pass of the standard track: due until one is done for this landing. That
     its last commit is still in the tip is the checks' look before their first command
-    (`unpolished`), which gives the pass back when it is not."""
+    (`unpolished`), which gives the pass back when it is not. A feature has none: each of its
+    parts had its own."""
     shape = record.task.shape
     if shape is None or shape.track == "small":
         return Held(why="the fast track has no polish pass")
+    if world.feature is not None:
+        return Held(why=NO_POLISH)
     done = (record.landing or Landing()).polished
     slug = record.task.slug
     if done is None:

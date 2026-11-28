@@ -5,12 +5,12 @@ It holds while the round has started, the worktree is there and clean, and the s
 command of the checks. A `ready` task starts round 1, or goes on with the round on record when a
 stop, a red base or a builder's way back cut it (the record is kept whole); an `open` task starts
 a new round, counted in `relands`, and with `--conflicting` the forge's call of a conflict
-brought it.
+brought it. A feature starts once each of its parts ended (`feature.py`).
 """
 
 from typing import TYPE_CHECKING
 
-from lem.model.landing import destination, start_said
+from lem.model.landing import destination, feature, start_said
 from lem.model.landing.invariants import protected
 from lem.model.landing.world import Due, Held, World
 from lem.records.base import Frozen
@@ -90,7 +90,11 @@ def decide(
     record: Record, world: World, facts: Facts, *, conflicting: bool
 ) -> Refusal | Started:
     """The start of this round, or why it may not start."""
-    refused = entry(record, conflicting=conflicting) or ready(record, world, facts)
+    refused = (
+        entry(record, conflicting=conflicting)
+        or ready(record, world, facts)
+        or feature.parts_open(record, world)
+    )
     if refused is not None:
         return refused
     landing = record.landing or Landing()

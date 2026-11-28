@@ -52,11 +52,13 @@ class Stop(Frozen, frozen=True, kw_only=True):
 
 
 class MergeBasis(Frozen, frozen=True, kw_only=True):
-    """The workspace's last fetched base commit and tree, and its landing setting."""
+    """The workspace's last fetched base commit and tree, its landing setting, and whether a
+    part names the task: a feature, which the owner merges."""
 
     tree: Sha | None = None
     land: Literal["agent", "owner"] | None = None
     base: Sha | None = None
+    feature: bool = False
 
 
 class Look(Frozen, frozen=True, kw_only=True):

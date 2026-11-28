@@ -1,4 +1,5 @@
-"""The base commit and tree each open task's merge reads."""
+"""The base commit and tree each open task's merge reads, and whether a part names the task (a
+feature, which the owner merges)."""
 
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
@@ -16,10 +17,12 @@ type Head = tuple[str | None, str | None]
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class Bases:
-    """The last fetched commit and tree of each destination that open tasks need."""
+    """The last fetched commit and tree of each destination that open tasks need, and the
+    tasks a part names."""
 
     settings: Branch | None = None
     refs: dict[str, Head] = field(default_factory=dict)
+    features: frozenset[str] = frozenset()
 
     def for_task(self, record: Record) -> MergeBasis:
         """The recorded destination of this task, or the workspace default."""
@@ -27,7 +30,10 @@ class Bases:
             return MergeBasis()
         ref = destination.recorded(record.landing) or self.settings.base
         head, tree = self.refs.get(ref or "", (None, None))
-        return MergeBasis(base=head, tree=tree, land=self.settings.land)
+        feature = record.task.slug in self.features
+        return MergeBasis(
+            base=head, tree=tree, land=self.settings.land, feature=feature
+        )
 
 
 def gathered(here: Here, branch: Branch | None, records: tuple[Record, ...]) -> Bases:
@@ -39,8 +45,11 @@ def gathered(here: Here, branch: Branch | None, records: tuple[Record, ...]) -> 
         for record in records
         if needs_base(record)
     }
+    named = {record.task.part_of for record in records}
     return Bases(
-        settings=branch, refs={ref: read_base(here, ref) for ref in refs if ref}
+        settings=branch,
+        refs={ref: read_base(here, ref) for ref in refs if ref},
+        features=frozenset(slug for slug in named if slug is not None),
     )
 
 
