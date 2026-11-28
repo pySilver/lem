@@ -74,7 +74,8 @@ Criteria that wait for his yes with no interview (a lead's, of a complete reques
    a case or a chart where `prompts/writing.md`, "In the acceptance criteria", asks for one. No
    test lines: the lead adds those. Keep the file as `criteria.md` in the task directory (over the
    fast track's one criterion, when the task came from there; its approval keeps that text), and
-   for each criterion the facts of the report that shaped it, for his page.
+   for each criterion the facts of the report that shaped it, for his page. When his ask says "as
+   a feature" or "in parts", the criteria go in a group for each part as `stages/feature.md` says.
 5. **Show them in the conversation, and start the personas' read in the same moment.** Write the
    criteria as plain text, each with the scout's facts that shaped it beside it, and the
    directions, and say that the personas read them now (a chart stays in the file and goes on the

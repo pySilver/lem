@@ -172,7 +172,9 @@ and he comes here when he chooses. Only his own act selects a session.
 A line `lem: SLUG merged`, `lem: SLUG conflict`, `lem: SLUG refused`, `lem: SLUG queue`, `lem: SLUG
 owner`, `lem: SLUG inbox`, `lem: SLUG status` or `lem: SLUG replaced` arrives as mail that is not the
 owner's input: the board's server sent it. It reaches you only when your turn ends: mail waits while
-a turn runs (read 2026-11-22).
+a turn runs (read 2026-11-22). A line `lem: SLUG sync`, and a session opened because `sync`, are
+the sync of a feature: take "The sync" of `SKILL_DIR/stages/feature.md`, before "A queued task"
+closes the session.
 
 Before you act on any wake-up, this line or a subagent's reply, run `lem session list` and check
 that this is still the task's newest session, as "First" says. When it is not, say in one line where

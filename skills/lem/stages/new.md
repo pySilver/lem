@@ -5,7 +5,8 @@ session of its own. `<what>` is the owner's words, a ticket or a backlog item. T
 it in only opens the task ("Open the task"), and goes on with its own work. The task's own session
 reads the request and chooses its path ("The request"), and carries the fast track to its merge
 ("The fast track"). Each other path is a file of its own beside this one, and the step that
-chooses the path names it.
+chooses the path names it. An ask that says "as a feature", "in parts" or "part of NAME", and a
+task whose record names `part_of`, also read `stages/feature.md`.
 
 ## Open the task
 
